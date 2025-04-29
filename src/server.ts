@@ -1,6 +1,8 @@
 import express, { Application } from 'express';
 import dotenv from 'dotenv';
 dotenv.config();
+import { PORT, CACHE_MAX, CACHE_TTL, RATE_LIMIT_WINDOW, RATE_LIMIT_MAX, ALLOWED_ORIGINS } from './config';
+import { wrapAsync, errorHandler } from './middleware';
 import fetch from 'node-fetch';
 import LRUCache from 'lru-cache';
 import cors from 'cors';
@@ -12,16 +14,25 @@ import swaggerUi from 'swagger-ui-express';
 import openApiDocument from '../openapi.json';
 import { ApolloServer, gql } from 'apollo-server-express';
 import GraphQLJSON from 'graphql-type-json';
+import helmet from 'helmet';
 
 export const app: Application = express();
 
-// Enable CORS
-app.use(cors());
+// Security headers
+app.use(helmet());
+
+// CORS: restrict to allowed origins, blank array allows all
+app.use(cors({ origin: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : true }));
 
 // Rate limiting
 app.use(rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW || '60000', 10),
-  max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10)
+  windowMs: RATE_LIMIT_WINDOW,
+  max: RATE_LIMIT_MAX,
+  keyGenerator: (req) => `${req.ip}:${req.method}:${req.originalUrl}`,
+  handler: (req, res) => {
+    console.warn(`Rate limit exceeded: ${req.ip} on ${req.method} ${req.originalUrl}`);
+    res.status(429).json({ error: 'Too many requests' });
+  }
 }));
 
 // Structured logging
@@ -49,9 +60,7 @@ app.get('/openapi.json', (_req, res) => res.json(openApiDocument));
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 app.get('/ready', (_req, res) => res.json({ status: 'ready' }));
 
-const port = parseInt(process.env.PORT || '3000', 10);
-const CACHE_MAX = parseInt(process.env.CACHE_MAX || '100', 10);
-const CACHE_TTL = parseInt(process.env.CACHE_TTL || '300000', 10);
+const port = PORT;
 
 type WikiSearchResult = {
   title: string;
@@ -82,7 +91,7 @@ async function wikiPage(title: string, lang: string) {
 }
 
 // REST endpoint: GET /search
-app.get('/search', async (req, res) => {
+app.get('/search', wrapAsync(async (req, res) => {
   const schema = z.object({
     q: z.string().min(1),
     limit: z.coerce.number().int().positive().max(50).default(10),
@@ -109,10 +118,10 @@ app.get('/search', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Search failed', details: err });
   }
-});
+}));
 
 // REST endpoint: GET /page/:title
-app.get('/page/:title', async (req, res) => {
+app.get('/page/:title', wrapAsync(async (req, res) => {
   const schema = z.object({
     title: z.string().min(1),
     lang: z.string().regex(/^[a-z]{2}(?:-[A-Z]{2})?$/).default('en')
@@ -128,7 +137,7 @@ app.get('/page/:title', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Page fetch failed', details: err });
   }
-});
+}));
 
 // Fetch page by numeric pageid
 async function wikiPageById(id: number, lang: string) {
@@ -142,7 +151,7 @@ async function wikiPageById(id: number, lang: string) {
 }
 
 // REST endpoint: GET /pageid/:id
-app.get('/pageid/:id', async (req, res) => {
+app.get('/pageid/:id', wrapAsync(async (req, res) => {
   const schema = z.object({
     id: z.coerce.number().int().positive(),
     lang: z.string().regex(/^[a-z]{2}(?:-[A-Z]{2})?$/).default('en')
@@ -158,13 +167,13 @@ app.get('/pageid/:id', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Page fetch failed', details: err });
   }
-});
+}));
 
 // GraphQL schema definitions
 const typeDefs = gql`
   scalar JSON
   type WikiSearchResult { title: String! snippet: String! pageid: Int! }
-  type Page { title: String! pageid: Int text: String sections: JSON }
+  type Page { title: String! pageid: Int! text: String! sections: JSON! }
   type Query {
     search(q: String!, limit: Int = 10, offset: Int = 0, filter: String, lang: String = "en"): [WikiSearchResult!]!
     page(title: String!, lang: String = "en"): Page!
@@ -184,11 +193,23 @@ const resolvers = {
     },
     page: async (_: any, args: any) => {
       const data = await wikiPage(args.title, args.lang);
-      return data.parse;
+      const parsed = data.parse;
+      return {
+        title: parsed.title,
+        pageid: parsed.pageid,
+        text: (parsed.text && (parsed.text['*'] ?? '')) as string,
+        sections: parsed.sections
+      };
     },
     pageById: async (_: any, args: any) => {
       const data = await wikiPageById(args.id, args.lang);
-      return data.parse;
+      const parsed = data.parse;
+      return {
+        title: parsed.title,
+        pageid: parsed.pageid,
+        text: (parsed.text && (parsed.text['*'] ?? '')) as string,
+        sections: parsed.sections
+      };
     }
   }
 };
@@ -224,3 +245,6 @@ if (require.main === module) {
   startServer().catch(err => { console.error('Startup error:', err); process.exit(1); });
 }
 export { startServer };
+
+// Centralized error handler
+app.use(errorHandler);

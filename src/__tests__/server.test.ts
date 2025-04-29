@@ -29,14 +29,76 @@ describe('REST endpoints', () => {
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('openapi');
   });
+
+  test('GET /search returns results array', async () => {
+    const res = await request(app)
+      .get('/search')
+      .query({ q: 'Node', limit: 2 });
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('results');
+    expect(Array.isArray(res.body.results)).toBe(true);
+  });
+
+  test('GET /search without q returns 400', async () => {
+    const res = await request(app).get('/search');
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('error');
+  });
+
+  test('GET /page/:title returns page data', async () => {
+    const res = await request(app).get('/page/JavaScript');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('page');
+    expect(res.body.page).toHaveProperty('title');
+    expect(res.body.page).toHaveProperty('text');
+  });
+
+  test('GET /page/:title invalid lang returns 400', async () => {
+    const res = await request(app)
+      .get('/page/JavaScript')
+      .query({ lang: 'invalid' });
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('error');
+  });
+
+  test('GET /pageid/:id returns page data', async () => {
+    const res = await request(app).get('/pageid/21721040');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('page');
+    expect(res.body.page).toHaveProperty('pageid');
+  });
+
+  test('GET /pageid/:id invalid id returns 400', async () => {
+    const res = await request(app).get('/pageid/abc');
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('error');
+  });
 });
 
 describe('GraphQL endpoint', () => {
   test('search query returns array', async () => {
     const res = await request(app)
       .post('/graphql')
-      .send({ query: '{ search(q:\"Node\") { title snippet pageid } }' });
+      .send({ query: '{ search(q:"Node") { title snippet pageid } }' });
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.data.search)).toBe(true);
+  });
+
+  test('page query returns page object', async () => {
+    const res = await request(app)
+      .post('/graphql')
+      .send({ query: '{ page(title:"JavaScript") { title text } }' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.page).toHaveProperty('title');
+    expect(typeof res.body.data.page.text).toBe('string');
+  });
+
+  test('pageById query returns page object', async () => {
+    const res = await request(app)
+      .post('/graphql')
+      .send({ query: '{ pageById(id:21721040) { title text sections } }' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.pageById).toHaveProperty('title');
+    expect(Array.isArray(res.body.data.pageById.sections)).toBe(true);
   });
 });

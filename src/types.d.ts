@@ -2,3 +2,4 @@
 declare module 'dotenv';
 declare module 'morgan';
 declare module 'swagger-ui-express';
+declare module 'helmet';

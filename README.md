@@ -8,6 +8,9 @@ A minimal TypeScript-based HTTP server exposing Wikipedia search and page retrie
 - **Page Fetch**: `GET /page/:title` to retrieve parsed HTML and section data for a given page.
 - **Page Fetch by ID**: `GET /pageid/:id` to retrieve parsed HTML and section data for a given page ID.
 - **Configurable LRU Cache** to speed up repeated requests (`CACHE_MAX`, `CACHE_TTL`).
+- **Security headers** via helmet.
+- **Configurable CORS** origins (`ALLOWED_ORIGINS`).
+- **Rate limiting** by IP+endpoint (`RATE_LIMIT_WINDOW`, `RATE_LIMIT_MAX`).
 - Written in **TypeScript** with full type safety.
 
 ## Requirements
@@ -32,6 +35,9 @@ Create a `.env` file in project root (see `.env.example`):
 - `PORT` (default: 3000): HTTP port.
 - `CACHE_MAX` (default: 100): max entries in LRU cache.
 - `CACHE_TTL` (default: 300000): cache entry TTL in milliseconds.
+- `RATE_LIMIT_WINDOW` (default: 60000): rate limit window in milliseconds.
+- `RATE_LIMIT_MAX` (default: 100): max requests per rate limit window.
+- `ALLOWED_ORIGINS` (default: empty): comma-separated CORS origins; leave empty to allow all.
 
 ## Running the Server
 
