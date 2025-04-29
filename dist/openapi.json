@@ -1,0 +1,101 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Wikipedia MCP Server API",
+        "version": "1.0.0",
+        "description": "OpenAPI specification for the Wikipedia MCP Server"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:{port}",
+            "variables": {
+                "port": { "default": "3000" }
+            }
+        }
+    ],
+    "paths": {
+        "/search": {
+            "get": {
+                "summary": "Search Wikipedia articles",
+                "parameters": [
+                    { "name": "q", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Search query" },
+                    { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "default": 10 }, "description": "Max number of results" },
+                    { "name": "filter", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Case-insensitive substring filter on titles" }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Search results",
+                        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SearchResponse" } } }
+                    },
+                    "400": { "description": "Missing query parameter" },
+                    "500": { "description": "Search failed" }
+                }
+            }
+        },
+        "/page/{title}": {
+            "get": {
+                "summary": "Fetch and parse a Wikipedia page",
+                "parameters": [
+                    { "name": "title", "in": "path", "required": true, "schema": { "type": "string" }, "description": "URL-encoded page title" }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Page data",
+                        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PageResponse" } } }
+                    },
+                    "500": { "description": "Fetch failed" }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "summary": "Liveness check",
+                "responses": { "200": { "description": "Service is up", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HealthResponse" } } } } }
+            }
+        },
+        "/ready": {
+            "get": {
+                "summary": "Readiness check",
+                "responses": { "200": { "description": "Service is ready", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HealthResponse" } } } } }
+            }
+        },
+        "/pageid/{id}": {
+            "get": {
+                "summary": "Fetch and parse a Wikipedia page by pageid",
+                "parameters": [
+                    { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }, "description": "Numeric Wikipedia page ID" },
+                    { "name": "lang", "in": "query", "required": false, "schema": { "type": "string", "default": "en" }, "description": "Language code" }
+                ],
+                "responses": {
+                    "200": { "description": "Page data", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PageResponse" } } } },
+                    "400": { "description": "Invalid parameters" },
+                    "500": { "description": "Fetch failed" }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "WikiSearchResult": {
+                "type": "object",
+                "properties": { "title": { "type": "string" }, "snippet": { "type": "string" }, "pageid": { "type": "integer" } }
+            },
+            "SearchResponse": {
+                "type": "object",
+                "properties": { "results": { "type": "array", "items": { "$ref": "#/components/schemas/WikiSearchResult" } } }
+            },
+            "Page": {
+                "type": "object",
+                "properties": { "title": { "type": "string" }, "pageid": { "type": "integer" }, "text": { "type": "string" }, "sections": { "type": "array", "items": { "type": "object" } } }
+            },
+            "PageResponse": {
+                "type": "object",
+                "properties": { "page": { "$ref": "#/components/schemas/Page" } }
+            },
+            "HealthResponse": {
+                "type": "object",
+                "properties": { "status": { "type": "string" } }
+            }
+        }
+    }
+}

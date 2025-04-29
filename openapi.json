@@ -58,6 +58,20 @@
         "summary": "Readiness check",
         "responses": {"200": {"description": "Service is ready", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HealthResponse"}}}}}
       }
+    },
+    "/pageid/{id}": {
+      "get": {
+        "summary": "Fetch and parse a Wikipedia page by pageid",
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}, "description": "Numeric Wikipedia page ID"},
+          {"name": "lang", "in": "query", "required": false, "schema": {"type": "string", "default": "en"}, "description": "Language code"}
+        ],
+        "responses": {
+          "200": {"description": "Page data", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PageResponse"}}}},
+          "400": {"description": "Invalid parameters"},
+          "500": {"description": "Fetch failed"}
+        }
+      }
     }
   },
   "components": {

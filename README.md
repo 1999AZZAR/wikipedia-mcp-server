@@ -6,6 +6,7 @@ A minimal TypeScript-based HTTP server exposing Wikipedia search and page retrie
 
 - **Search**: `GET /search?q=QUERY&limit=N&filter=FILTER` for article search with optional title filtering.
 - **Page Fetch**: `GET /page/:title` to retrieve parsed HTML and section data for a given page.
+- **Page Fetch by ID**: `GET /pageid/:id` to retrieve parsed HTML and section data for a given page ID.
 - **Configurable LRU Cache** to speed up repeated requests (`CACHE_MAX`, `CACHE_TTL`).
 - Written in **TypeScript** with full type safety.
 
@@ -94,22 +95,85 @@ Fetch and parse a Wikipedia page.
 { "page": { "title": "Node.js", "pageid": 12345, "text": "<p>...</p>", "sections": [ ... ] } }
 ```
 
-## Usage Examples
+### GET /pageid/:id
 
-**cURL**
+Fetch and parse a Wikipedia page by numeric ID.
+
+| Parameter | Type    | Required | Default | Description          |
+|-----------|---------|----------|---------|----------------------|
+| id        | integer | yes      | —       | Numeric page ID      |
+| lang      | string  | no       | en      | Language code (e.g. en, fr) |
+
+**Response**
+```json
+{ "page": { "title": "Node.js", "pageid": 12345, "text": "<p>...</p>", "sections": [ ... ] } }
+```
+
+## Usage Examples
+### REST - cURL
 ```bash
 curl "http://localhost:3000/search?q=TypeScript&limit=5"
 curl "http://localhost:3000/page/JavaScript"
+curl "http://localhost:3000/pageid/12345?lang=en"
 ```
 
-**Node.js**
-```js
+### REST - Node.js
+```ts
 import fetch from 'node-fetch';
-async function query() {
+async function restQuery() {
   const res = await fetch('http://localhost:3000/search?q=Express');
   console.log(await res.json());
 }
-query();
+restQuery();
+
+async function getById() {
+  const res = await fetch('http://localhost:3000/pageid/12345?lang=en');
+  console.log(await res.json());
+}
+getById();
+```
+
+### GraphQL - cURL
+```bash
+curl -X POST http://localhost:3000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query":"{ search(q:\"Node.js\") { title snippet pageid } }"}'
+```
+
+### GraphQL - Node.js
+```ts
+import { ApolloClient, InMemoryCache, gql } from '@apollo/client';
+const client = new ApolloClient({
+  uri: 'http://localhost:3000/graphql',
+  cache: new InMemoryCache()
+});
+client.query({
+  query: gql`{ page(title: "TypeScript") { title text } }`
+}).then(console.log);
+
+client.query({
+  query: gql`{ pageById(id: 21721040) { title text sections } }`
+}).then(console.log);
+```
+
+### JSON-RPC - Node.js (stdin/stdout)
+```ts
+import { StdioTransport } from './src/transport';
+import { JSONRPCServer } from './src/jsonrpc';
+
+const transport = new StdioTransport();
+const rpcServer = new JSONRPCServer(transport);
+rpcServer.on('search', async ({ q, limit }) => {
+  // implement your handler, e.g. call wikiSearch(q, limit)
+  return /* result */;
+});
+await rpcServer.start();
+```
+
+## Testing
+Run unit tests:
+```bash
+npm test
 ```
 
 ## Integration
@@ -134,6 +198,82 @@ app.listen(4000);
 ```
 
 *Alternatively*, extract request logic from `src/server.ts` to use functions directly in your codebase.
+
+## Desktop App Integration
+
+Use a JSON config in your desktop (e.g., Electron) app:
+
+```json
+// config.json
+{
+  "mcpServer": {
+    "baseUrl": "http://localhost:3000",
+    "timeout": 5000
+  }
+}
+```
+
+Load and call endpoints:
+
+```ts
+import config from './config.json';
+
+const { baseUrl, timeout } = config.mcpServer;
+
+async function search(query: string) {
+  const res = await fetch(`${baseUrl}/search?q=${encodeURIComponent(query)}`, { timeout });
+  return res.json();
+}
+
+async function getPage(title: string) {
+  const res = await fetch(`${baseUrl}/page/${encodeURIComponent(title)}`, { timeout });
+  return res.json();
+}
+
+async function getPageById(id: number) {
+  const res = await fetch(`${baseUrl}/pageid/${id}?lang=en`, { timeout });
+  return res.json();
+}
+```
+
+## GraphQL API
+
+Interactive GraphQL Playground at `http://localhost:${PORT:-3000}/graphql`.
+
+**Example Query**
+```graphql
+query {
+  search(q: "TypeScript", limit: 5) {
+    title
+    snippet
+    pageid
+  }
+}
+```
+```graphql
+query GetPage { page(title: "Node.js") { title pageid text sections } }
+```
+```graphql
+query GetPageById {
+  pageById(id: 21721040) {
+    title
+    text
+    sections
+  }
+}
+```
+
+## SDK Generation
+
+Auto-generate a TypeScript client from OpenAPI:
+```bash
+npm run gen:client
+```
+Client will appear at `src/sdk/client.ts`, which you can import:
+```ts
+import { paths } from './sdk/client';
+```
+Use this for typed REST calls in your apps.
 
 ## Docker (Optional)
 
