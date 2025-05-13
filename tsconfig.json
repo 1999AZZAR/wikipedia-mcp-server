@@ -10,7 +10,12 @@
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "types": ["@cloudflare/workers-types", "jest"],
-    "typeRoots": ["./node_modules/@types"]
+    "typeRoots": ["./node_modules/@types", "./node_modules"],
+    "baseUrl": ".",
+    "paths": {
+      "@cloudflare/workers-types": ["node_modules/@cloudflare/workers-types/index.d.ts"],
+      "@cloudflare/workers-types/*": ["node_modules/@cloudflare/workers-types/*"]
+    }
   },
   "include": ["src/**/*"]
 }
