@@ -112,17 +112,20 @@ app.post('/mcp', async (c) => {
     await jsonRpcServer.processRequest(requestBody);
 
     // The transport's `send` method (called by jsonRpcServer) uses c.json(), 
-    // so Hono handles the response. We don't return anything explicitly here
-    // unless processRequest throws an unexpected error before sending.
-    // Hono requires a Response to be returned, but WorkerTransport.send already does this.
-    // If processRequest completes without the transport sending, we might need a fallback.
-    // However, JSONRPCServer is designed to always send *something* via the transport.
-    // We rely on the transport having called c.json().
-    // To satisfy Hono's typing, we might need to return the result of c.json() or handle the response promise.
-    // For now, assume transport handles it. If issues arise, revisit this.
-
-    // If the transport didn't send (which it should have), return an empty response? This is awkward.
-    // Let's assume the transport always sends.
+    // which sets c.res. Hono requires the handler to return this Response.
+    // If processRequest threw an error handled by JSONRPCServer and sent via transport,
+    // c.res will be set. If processRequest completed, c.res is also set.
+    if (c.res) {
+      return c.res;
+    }
+    
+    // Fallback / Should not be reached if JSONRPCServer/Transport always sends a response
+    console.error("MCP route completed without a response being set on context. This shouldn't happen.");
+    return c.json({ 
+      jsonrpc: '2.0', 
+      error: { code: -32000, message: 'Internal server error: No response generated' },
+      id: requestId
+    }, 500);
 
   } catch (error: any) {
     // Catch errors during server setup or unexpected errors during processRequest
@@ -130,6 +133,7 @@ app.post('/mcp', async (c) => {
     // Use the WorkerTransport's sendError to format the JSON-RPC error
     // Need an instance of transport here, problematic if error happens before instantiation.
     // Instead, directly return a JSON-RPC error response.
+    // c.json() returns a Response object, so we return that.
     return c.json({ 
       jsonrpc: '2.0', 
       error: { code: -32603, message: `Internal server error: ${error.message}` },
