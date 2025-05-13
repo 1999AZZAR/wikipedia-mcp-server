@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import LRUCache from 'lru-cache';
 
 // Type definition for search results (can be shared or defined here)
