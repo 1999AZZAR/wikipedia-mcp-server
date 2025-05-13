@@ -24,9 +24,12 @@ export async function wikiSearch(
   }
   console.log(`Cache miss for: ${key}, fetching from API...`)
   const url = `https://${lang}.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch=${encodeURIComponent(query)}&srlimit=${limit}&sroffset=${offset}`;
+  // Use global fetch provided by Cloudflare Workers environment
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Wikipedia API error for search: ${res.status} ${await res.text()}`);
+    const errorText = await res.text();
+    console.error(`Wikipedia API error for search: ${res.status} ${errorText}`);
+    throw new Error(`Wikipedia API error for search: ${res.status} ${errorText}`);
   }
   const data = await res.json();
   if (cache) {
@@ -49,9 +52,12 @@ export async function wikiPage(
   }
   console.log(`Cache miss for: ${key}, fetching from API...`)
   const url = `https://${lang}.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(title)}&format=json&prop=text|sections`;
+  // Use global fetch
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Wikipedia API error for page: ${res.status} ${await res.text()}`);
+    const errorText = await res.text();
+    console.error(`Wikipedia API error for page: ${res.status} ${errorText}`);
+    throw new Error(`Wikipedia API error for page: ${res.status} ${errorText}`);
   }
   const data = await res.json();
   if (cache) {
@@ -74,9 +80,12 @@ export async function wikiPageById(
   }
   console.log(`Cache miss for: ${key}, fetching from API...`)
   const url = `https://${lang}.wikipedia.org/w/api.php?action=parse&pageid=${id}&format=json&prop=text|sections`;
+  // Use global fetch
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Wikipedia API error for pageById: ${res.status} ${await res.text()}`);
+    const errorText = await res.text();
+    console.error(`Wikipedia API error for pageById: ${res.status} ${errorText}`);
+    throw new Error(`Wikipedia API error for pageById: ${res.status} ${errorText}`);
   }
   const data = await res.json();
   if (cache) {
