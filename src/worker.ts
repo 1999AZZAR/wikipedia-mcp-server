@@ -4,13 +4,38 @@ import { JSONRPCServer } from './jsonrpc';
 import { WorkerTransport } from './WorkerTransport';
 import { wikiSearch, wikiPage, wikiPageById } from './wikipediaService';
 import { z } from 'zod'; // For input validation
+import LRUCache from 'lru-cache';
 
-// Define environment variable types (if needed)
-// type Bindings = {};
+// Define environment variable types (bindings) expected by the worker
+// These will be available in c.env
+interface EnvBindings {
+  CACHE_MAX?: string; // Wrangler stores .dev.vars and secrets as strings
+  CACHE_TTL?: string;
+  // Add other bindings here if needed
+}
 
-const app = new Hono();
+// App instance with environment bindings typing
+const app = new Hono<{ Bindings: EnvBindings }>();
+
+// Global cache instance (per worker instance, not per request)
+let lruCache: LRUCache<string, any> | null = null;
+
+// Default cache configuration
+const DEFAULT_CACHE_MAX = 100;
+const DEFAULT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 app.use('*', logger());
+
+// Function to initialize or get the cache instance
+function getCache(env: EnvBindings): LRUCache<string, any> {
+  if (!lruCache) {
+    const max = parseInt(env.CACHE_MAX || '', 10) || DEFAULT_CACHE_MAX;
+    const ttl = parseInt(env.CACHE_TTL || '', 10) || DEFAULT_CACHE_TTL;
+    console.log(`Initializing LRU Cache with max: ${max}, ttl: ${ttl}ms`);
+    lruCache = new LRUCache<string, any>({ max, ttl });
+  }
+  return lruCache;
+}
 
 // MCP endpoint
 app.post('/mcp', async (c) => {
@@ -28,6 +53,7 @@ app.post('/mcp', async (c) => {
 
   // Extract ID for potential error responses even if body structure is wrong
   const requestId = (typeof requestBody === 'object' && requestBody !== null && requestBody.id !== undefined) ? requestBody.id : null;
+  const currentCache = getCache(c.env);
 
   try {
     const transport = new WorkerTransport(c); // Pass Hono context to transport
@@ -47,7 +73,7 @@ app.post('/mcp', async (c) => {
         throw new Error(`Invalid parameters for wikipedia.search: ${parseResult.error.message}`);
       }
       const { query, limit, lang, offset } = parseResult.data;
-      const data = await wikiSearch(query, limit, lang, offset);
+      const data = await wikiSearch(query, limit, lang, offset, currentCache);
       return data?.query?.search || [];
     });
 
@@ -62,7 +88,7 @@ app.post('/mcp', async (c) => {
             throw new Error(`Invalid parameters for wikipedia.page: ${parseResult.error.message}`);
         }
         const { title, lang } = parseResult.data;
-        const data = await wikiPage(title, lang);
+        const data = await wikiPage(title, lang, currentCache);
         return data?.parse || null;
     });
 
@@ -77,7 +103,7 @@ app.post('/mcp', async (c) => {
             throw new Error(`Invalid parameters for wikipedia.pageById: ${parseResult.error.message}`);
         }
         const { id, lang } = parseResult.data;
-        const data = await wikiPageById(id, lang);
+        const data = await wikiPageById(id, lang, currentCache);
         return data?.parse || null;
     });
     // --- End Method Registration ---
