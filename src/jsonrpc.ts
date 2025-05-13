@@ -19,35 +19,36 @@ export class JSONRPCServer {
     await this.transport.start();
   }
 
-  public async processRequest(requestBody: any): Promise<void> {
+  public async processRequest(requestBody: any): Promise<Response> {
     if (!requestBody || typeof requestBody !== 'object' || requestBody === null) {
-      const errorResponse: JSONRPCMessage = {
+      const errorResponseMsg: JSONRPCMessage = {
         jsonrpc: '2.0',
         error: { code: -32600, message: 'Invalid Request: body must be a JSON object.' },
         id: (requestBody && typeof requestBody.id !== 'undefined') ? requestBody.id : null,
       };
-      await this.transport.send(errorResponse);
-      return;
+      return this.transport.send(errorResponseMsg);
     }
 
-    await this.handleMessage(requestBody as JSONRPCMessage);
+    return this.handleMessage(requestBody as JSONRPCMessage);
   }
 
-  private async handleMessage(msg: JSONRPCMessage) {
-    if (msg.jsonrpc !== '2.0' || !msg.method) return;
+  private async handleMessage(msg: JSONRPCMessage): Promise<Response> {
+    if (msg.jsonrpc !== '2.0' || !msg.method) {
+      const errorMsg: JSONRPCMessage = { jsonrpc: '2.0', error: { code: -32600, message: 'Invalid JSON-RPC request object' }, id: msg.id };
+      return this.transport.send(errorMsg);
+    }
     const handler = this.handlers[msg.method];
-    const response: JSONRPCMessage = { jsonrpc: '2.0', id: msg.id };
+    const responseMsg: JSONRPCMessage = { jsonrpc: '2.0', id: msg.id };
     if (!handler) {
-      response.error = { code: -32601, message: 'Method not found' };
-      await this.transport.send(response);
-      return;
+      responseMsg.error = { code: -32601, message: 'Method not found' };
+      return this.transport.send(responseMsg);
     }
     try {
       const result = await handler(msg.params);
-      response.result = result;
+      responseMsg.result = result;
     } catch (err: any) {
-      response.error = { code: -32000, message: err.message || String(err) };
+      responseMsg.error = { code: -32000, message: err.message || String(err) };
     }
-    await this.transport.send(response);
+    return this.transport.send(responseMsg);
   }
 }

@@ -24,32 +24,35 @@ export class WorkerTransport implements Transport {
     return Promise.resolve();
   }
 
-  async send(message: JSONRPCMessage): Promise<void> {
+  async send(message: JSONRPCMessage): Promise<Response> {
     if (this.messageSent) {
       console.warn('Attempted to send message after response was already sent:', message);
-      return;
+      // If a response was already prepared for c, return it.
+      // Otherwise, construct a new error response.
+      if (this.c.res) return this.c.res;
+      return new Response(JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message: 'Response already sent but c.res was not available' }, id: message.id ?? null }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
-    // Hono's c.json() handles setting headers and sending the response.
-    this.c.json(message, 200);
-    this.messageSent = true;
+    this.messageSent = true; // Set before c.json to avoid potential re-entrancy issues if c.json could trigger this path.
+    // Hono's c.json() returns a Response and also sets c.res as a side effect.
+    return this.c.json(message, 200); 
   }
 
   // Helper to send an error response, typically called by JSONRPCServer if it encounters an issue.
   // JSONRPCServer should construct the JSONRPCMessage error object itself.
   // This method is simplified as Hono will handle the actual response sending via c.json() in the route.
   // If JSONRPCServer calls this, it implies an error *before* a normal response can be formed.
-  public sendError(error: Error, id?: string | number | null): void {
+  public sendError(error: Error, id?: string | number | null): Response {
     if (this.messageSent) {
         console.warn('Attempted to send error after response was already sent:', error);
-        return;
+        if (this.c.res) return this.c.res;
+        return new Response(JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message: 'Response already sent (during sendError) but c.res was not available' }, id }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
-    console.error('WorkerTransport sendError invoked:', error);
-    this.c.json({
+    this.messageSent = true;
+    return this.c.json({
         jsonrpc: '2.0',
         error: { code: -32000, message: error.message || 'Internal Server Error' },
         id: id === undefined ? null : id,
-    }, 500); // Consider if JSON-RPC errors should always be 200 or if transport-level errors can be 500
-    this.messageSent = true;
+    }, 500);
   }
 
   async close(): Promise<void> {

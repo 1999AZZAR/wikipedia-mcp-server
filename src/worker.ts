@@ -51,12 +51,10 @@ app.post('/mcp', async (c) => {
     }, 400); // Use 400 for invalid JSON payload
   }
 
-  // Extract ID for potential error responses even if body structure is wrong
-  const requestId = (typeof requestBody === 'object' && requestBody !== null && requestBody.id !== undefined) ? requestBody.id : null;
   const currentCache = getCache(c.env);
 
   try {
-    const transport = new WorkerTransport(c); // Pass Hono context to transport
+    const transport = new WorkerTransport(c); 
     const jsonRpcServer = new JSONRPCServer(transport);
 
     // --- Register MCP Methods ---
@@ -108,36 +106,17 @@ app.post('/mcp', async (c) => {
     });
     // --- End Method Registration ---
 
-    // Process the request using the JSON-RPC server
-    await jsonRpcServer.processRequest(requestBody);
-
-    // The transport's `send` method (called by jsonRpcServer) uses c.json(), 
-    // which sets c.res. Hono requires the handler to return this Response.
-    // If processRequest threw an error handled by JSONRPCServer and sent via transport,
-    // c.res will be set. If processRequest completed, c.res is also set.
-    if (c.res) {
-      return c.res;
-    }
-    
-    // Fallback / Should not be reached if JSONRPCServer/Transport always sends a response
-    console.error("MCP route completed without a response being set on context. This shouldn't happen.");
-    return c.json({ 
-      jsonrpc: '2.0', 
-      error: { code: -32000, message: 'Internal server error: No response generated' },
-      id: requestId
-    }, 500);
+    // Process the request using the JSON-RPC server and directly return its Response
+    return await jsonRpcServer.processRequest(requestBody);
 
   } catch (error: any) {
     // Catch errors during server setup or unexpected errors during processRequest
     console.error('Error processing MCP request in worker:', error);
-    // Use the WorkerTransport's sendError to format the JSON-RPC error
-    // Need an instance of transport here, problematic if error happens before instantiation.
-    // Instead, directly return a JSON-RPC error response.
-    // c.json() returns a Response object, so we return that.
+    const requestId = (typeof requestBody === 'object' && requestBody !== null && typeof requestBody.id !== 'undefined') ? requestBody.id : null;
     return c.json({ 
       jsonrpc: '2.0', 
       error: { code: -32603, message: `Internal server error: ${error.message}` },
-      id: requestId // Use the ID we tried to extract earlier
+      id: requestId
     }, 500);
   }
 });

@@ -9,7 +9,7 @@ export interface JSONRPCMessage {
 
 export interface Transport {
   start(): Promise<void>;
-  send(message: JSONRPCMessage): Promise<void>;
+  send(message: JSONRPCMessage): Promise<Response>;
   close(): Promise<void>;
   onclose?: () => void;
   onerror?: (error: Error) => void;
