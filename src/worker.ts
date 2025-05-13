@@ -1,16 +1,15 @@
 import { Hono } from 'hono';
 import { logger } from 'hono/logger';
-import { sse, SSEStreamingApi } from 'hono/streaming';
 import { JSONRPCServer } from './jsonrpc';
 import { WorkerTransport } from './WorkerTransport';
-import { SseTransport } from './SseTransport';
-import { wikiSearch, wikiPage, wikiPageById, JSONRPCMessage } from './wikipediaService';
+import { wikiSearch, wikiPage, wikiPageById } from './wikipediaService';
 import { z } from 'zod'; // For input validation
 import LRUCache from 'lru-cache';
 
 // Define environment variable types (bindings) expected by the worker
 // These will be available in c.env
 interface EnvBindings {
+  [key: string]: any; // Added index signature
   CACHE_MAX?: string; // Wrangler stores .dev.vars and secrets as strings
   CACHE_TTL?: string;
   // Add other bindings here if needed
@@ -53,7 +52,7 @@ app.post('/mcp', async (c) => {
     }, 400); // Use 400 for invalid JSON payload
   }
 
-  const currentCache = getCache(c.env);
+  const currentCache = getCache(c.env || {});
 
   try {
     const transport = new WorkerTransport(c); 
@@ -121,107 +120,6 @@ app.post('/mcp', async (c) => {
       id: requestId
     }, 500);
   }
-});
-
-// SSE endpoint
-app.post('/sse', async (c) => {
-  let requestBody: any;
-  try {
-    requestBody = await c.req.json();
-  } catch (e) {
-    return c.json(
-      { jsonrpc: '2.0', error: { code: -32700, message: 'Parse error: Invalid JSON' }, id: null },
-      400
-    );
-  }
-
-  const currentCache = getCache(c.env);
-
-  return sse(c, async (stream: SSEStreamingApi) => {
-    // Pass the stream to the SseTransport
-    const transport = new SseTransport(c);
-    transport.setSseStreamingApi(stream); // Method to link stream API to transport instance
-
-    const jsonRpcServer = new JSONRPCServer(transport);
-
-    // Register MCP methods (same as in /mcp route)
-    const searchSchema = z.object({
-      query: z.string().min(1),
-      limit: z.number().int().positive().max(50).optional().default(10),
-      lang: z.string().regex(/^[a-z]{2}(?:-[A-Z]{2})?$/).optional().default('en'),
-      offset: z.number().int().nonnegative().optional().default(0),
-    });
-
-    jsonRpcServer.on('wikipedia.search', async (params: unknown) => {
-      const parseResult = searchSchema.safeParse(params);
-      if (!parseResult.success) {
-        throw new Error(`Invalid parameters for wikipedia.search: ${parseResult.error.message}`);
-      }
-      const { query, limit, lang, offset } = parseResult.data;
-      const data = await wikiSearch(query, limit, lang, offset, currentCache);
-      return data?.query?.search || [];
-    });
-
-    const pageSchema = z.object({
-      title: z.string().min(1),
-      lang: z.string().regex(/^[a-z]{2}(?:-[A-Z]{2})?$/).optional().default('en'),
-    });
-
-    jsonRpcServer.on('wikipedia.page', async (params: unknown) => {
-      const parseResult = pageSchema.safeParse(params);
-      if (!parseResult.success) {
-        throw new Error(`Invalid parameters for wikipedia.page: ${parseResult.error.message}`);
-      }
-      const { title, lang } = parseResult.data;
-      const data = await wikiPage(title, lang, currentCache);
-      return data?.parse || null;
-    });
-
-    const pageByIdSchema = z.object({
-      id: z.number().int().positive(),
-      lang: z.string().regex(/^[a-z]{2}(?:-[A-Z]{2})?$/).optional().default('en'),
-    });
-
-    jsonRpcServer.on('wikipedia.pageById', async (params: unknown) => {
-      const parseResult = pageByIdSchema.safeParse(params);
-      if (!parseResult.success) {
-        throw new Error(`Invalid parameters for wikipedia.pageById: ${parseResult.error.message}`);
-      }
-      const { id, lang } = parseResult.data;
-      const data = await wikiPageById(id, lang, currentCache);
-      return data?.parse || null;
-    });
-
-    try {
-      // Process the request. The SseTransport will send the response over the stream.
-      // The `processRequest` method in JSONRPCServer for SseTransport might not need to return a `Response` object
-      // in the same way WorkerTransport did, as the SSE stream is the actual response mechanism.
-      // This highlights a slight mismatch in the Transport interface's `send(): Promise<Response>` signature for SSE.
-      await jsonRpcServer.processRequest(requestBody);
-      // Keep the stream alive for a short period if needed, or close based on MCP spec for SSE.
-      // For a single request-response, we might close it after the response is sent.
-      // However, MCP clients might expect the stream to stay open for a bit.
-      // We need to decide when to call stream.close().
-      // For now, we assume `processRequest` will handle sending and then we can potentially close.
-      // If `processRequest` throws, the catch block below will handle it.
-    } catch (error: any) {
-      console.error('Error processing SSE request in worker:', error);
-      const requestId = (typeof requestBody === 'object' && requestBody !== null && typeof requestBody.id !== 'undefined') ? requestBody.id : null;
-      const errorResponse: JSONRPCMessage = {
-        jsonrpc: '2.0',
-        error: { code: -32603, message: `Internal server error: ${error.message}` },
-        id: requestId,
-      };
-      // Send error over SSE stream
-      await stream.writeSSE({
-        data: JSON.stringify(errorResponse),
-        event: 'jsonrpc_error', // Differentiate error events
-      });
-    } finally {
-      // Ensure the stream is closed after processing one request-response cycle.
-      await stream.close(); 
-    }
-  });
 });
 
 // Basic health check route
