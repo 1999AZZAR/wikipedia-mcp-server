@@ -19,6 +19,20 @@ export class JSONRPCServer {
     await this.transport.start();
   }
 
+  public async processRequest(requestBody: any): Promise<void> {
+    if (!requestBody || typeof requestBody !== 'object' || requestBody === null) {
+      const errorResponse: JSONRPCMessage = {
+        jsonrpc: '2.0',
+        error: { code: -32600, message: 'Invalid Request: body must be a JSON object.' },
+        id: (requestBody && typeof requestBody.id !== 'undefined') ? requestBody.id : null,
+      };
+      await this.transport.send(errorResponse);
+      return;
+    }
+
+    await this.handleMessage(requestBody as JSONRPCMessage);
+  }
+
   private async handleMessage(msg: JSONRPCMessage) {
     if (msg.jsonrpc !== '2.0' || !msg.method) return;
     const handler = this.handlers[msg.method];

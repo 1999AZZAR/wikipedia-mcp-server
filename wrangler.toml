@@ -1,0 +1,8 @@
+name = "wikipedia-mcp-server"
+compatibility_date = "2024-05-13"
+
+# Main entry point for the worker script (adjust path after refactoring)
+main = "dist/worker.js"
+
+[build]
+command = "npm run build" 

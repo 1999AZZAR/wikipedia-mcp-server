@@ -1,300 +1,219 @@
-# Wikipedia MCP Server
+# Wikipedia MCP Server (Cloudflare Worker)
 
-A minimal TypeScript-based HTTP server exposing Wikipedia search and page retrieval via the MediaWiki API, featuring configurable caching and flexible integration.
+A Cloudflare Worker exposing Wikipedia search and page retrieval via the Model Context Protocol (MCP) standard using JSON-RPC 2.0.
 
 ## Features
 
-- **Search**: `GET /search?q=QUERY&limit=N&filter=FILTER` for article search with optional title filtering.
-- **Page Fetch**: `GET /page/:title` to retrieve parsed HTML and section data for a given page.
-- **Page Fetch by ID**: `GET /pageid/:id` to retrieve parsed HTML and section data for a given page ID.
-- **Configurable LRU Cache** to speed up repeated requests (`CACHE_MAX`, `CACHE_TTL`).
-- **Security headers** via helmet.
-- **Configurable CORS** origins (`ALLOWED_ORIGINS`).
-- **Rate limiting** by IP+endpoint (`RATE_LIMIT_WINDOW`, `RATE_LIMIT_MAX`).
-- Written in **TypeScript** with full type safety.
+- **MCP Endpoint**: `POST /mcp` endpoint supporting JSON-RPC 2.0 requests for Wikipedia operations.
+  - `wikipedia.search`: Search for articles.
+  - `wikipedia.page`: Get page content by title.
+  - `wikipedia.pageById`: Get page content by ID.
+- **Configurable LRU Cache** (In-memory per instance, consider KV/Caches API for persistence).
+- Written in **TypeScript** with Hono.
+- Deployable to **Cloudflare Workers**.
 
 ## Requirements
 
-- Node.js v14+ or later
-- npm
+- Node.js (check `.nvmrc` or `package.json` engines if specified)
+- npm or yarn
+- Wrangler CLI (Cloudflare's Worker CLI)
+- A Cloudflare account
 
 ## Installation
 
 ```bash
-git clone https://github.com/1999AZZAR/wikipedia-mcp-server.git
+git clone https://github.com/your-repo/wikipedia-mcp-server.git # Replace with your repo URL
 cd wikipedia-mcp-server
-cp .env.example .env
 npm install
-npm run build
+npm install -g wrangler # Or install locally: npm install --save-dev wrangler
+wrangler login # Authenticate with Cloudflare
 ```
 
 ## Configuration
 
-Create a `.env` file in project root (see `.env.example`):
+Worker configuration is managed via `wrangler.toml`.
 
-- `PORT` (default: 3000): HTTP port.
-- `CACHE_MAX` (default: 100): max entries in LRU cache.
-- `CACHE_TTL` (default: 300000): cache entry TTL in milliseconds.
-- `RATE_LIMIT_WINDOW` (default: 60000): rate limit window in milliseconds.
-- `RATE_LIMIT_MAX` (default: 100): max requests per rate limit window.
-- `ALLOWED_ORIGINS` (default: empty): comma-separated CORS origins; leave empty to allow all.
+- **`name`**: Name of the worker on Cloudflare.
+- **`main`**: Entry point script (`dist/worker.js` after build).
+- **`compatibility_date`**: Sets the runtime compatibility date.
+- **`[build]`**: Specifies the build command (`npm run build`).
 
-## Running the Server
+**Local Development Variables:**
+
+Create a `.dev.vars` file in the `wikipedia` directory root for local development using `wrangler dev`. Wrangler automatically loads this file. Example:
+
+```toml
+# .dev.vars (optional, for local development overrides)
+CACHE_MAX=200
+CACHE_TTL=600000 # 10 minutes
+```
+
+**Deployed Variables (Secrets & Environment Variables):**
+
+For deployed workers, configure environment variables and secrets via the Cloudflare dashboard or using `wrangler secret put VAR_NAME`. These might be needed if extending functionality (e.g., API keys for other services).
+
+## Running Locally
 
 ```bash
-npm run start
+npm run dev
 ```
 
-By default, the server listens on http://localhost:${PORT:-3000}.
+This starts a local server using Wrangler, simulating the Cloudflare environment. It typically listens on `http://localhost:8787`. Check the Wrangler output for the exact address. The `/mcp` endpoint will be available at this address.
 
-## API Documentation
+## Deployment
 
-Access interactive Swagger UI at `http://localhost:3000/docs` (or your configured `PORT`).
-
-Raw OpenAPI spec available at `/openapi.json`.
-
-## API Endpoints
-
-### GET /health
-
-Liveness check endpoint.
-
-**Response**
-```json
-{ "status": "ok" }
-```
-
-### GET /ready
-
-Readiness check endpoint.
-
-**Response**
-```json
-{ "status": "ready" }
-```
-
-### GET /search
-
-Search Wikipedia articles.
-
-| Parameter | Type   | Required | Default | Description                              |
-|-----------|--------|----------|---------|------------------------------------------|
-| q         | string | yes      | —       | Search query                             |
-| limit     | number | no       | 10      | Max number of results                    |
-| filter    | string | no       | —       | Case-insensitive substring filter on titles |
-
-**Response**
-```json
-{ "results": [ { "title": "Node.js", "snippet": "...", "pageid": 12345 }, ... ] }
-```
-
-### GET /page/:title
-
-Fetch and parse a Wikipedia page.
-
-| Parameter | Type   | Required | Description                     |
-|-----------|--------|----------|---------------------------------|
-| title     | string | yes      | URL-encoded page title          |
-
-**Response**
-```json
-{ "page": { "title": "Node.js", "pageid": 12345, "text": "<p>...</p>", "sections": [ ... ] } }
-```
-
-### GET /pageid/:id
-
-Fetch and parse a Wikipedia page by numeric ID.
-
-| Parameter | Type    | Required | Default | Description          |
-|-----------|---------|----------|---------|----------------------|
-| id        | integer | yes      | —       | Numeric page ID      |
-| lang      | string  | no       | en      | Language code (e.g. en, fr) |
-
-**Response**
-```json
-{ "page": { "title": "Node.js", "pageid": 12345, "text": "<p>...</p>", "sections": [ ... ] } }
-```
-
-## Usage Examples
-### REST - cURL
 ```bash
-curl "http://localhost:3000/search?q=TypeScript&limit=5"
-curl "http://localhost:3000/page/JavaScript"
-curl "http://localhost:3000/pageid/12345?lang=en"
+npm run deploy
 ```
 
-### REST - Node.js
-```ts
-import fetch from 'node-fetch';
-async function restQuery() {
-  const res = await fetch('http://localhost:3000/search?q=Express');
-  console.log(await res.json());
+This command builds the worker using `npm run build` (as defined in `wrangler.toml`) and deploys it to your Cloudflare account. Wrangler will output the URL of your deployed worker.
+
+## API Endpoint
+
+### POST /mcp (JSON-RPC 2.0)
+
+The single endpoint `/mcp` accepts `POST` requests with a JSON-RPC 2.0 payload.
+
+**Request Format**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "<method_name>",
+  "params": { ... }, // Method-specific parameters
+  "id": "<request_id>"
 }
-restQuery();
+```
 
-async function getById() {
-  const res = await fetch('http://localhost:3000/pageid/12345?lang=en');
-  console.log(await res.json());
+**Supported Methods**
+
+*   `wikipedia.search`
+    *   **Params**: `{ "query": string, "limit"?: number, "lang"?: string }` (Note: `offset` might need re-implementation if required)
+    *   **Result**: Array of search result objects (`{ title, snippet, pageid }`)
+*   `wikipedia.page`
+    *   **Params**: `{ "title": string, "lang"?: string }`
+    *   **Result**: Page object (`{ title, pageid, text, sections }`) or `null`
+*   `wikipedia.pageById`
+    *   **Params**: `{ "id": number, "lang"?: string }`
+    *   **Result**: Page object (`{ title, pageid, text, sections }`) or `null`
+
+**Response Format (Success/Error)**: Standard JSON-RPC 2.0 success/error objects.
+
+## Integrations
+
+(This section remains largely the same, just update example URLs if needed)
+
+This MCP-compliant Wikipedia server can be integrated into various tools and platforms that support consuming JSON-RPC 2.0 services over HTTP. The primary integration point is the `/mcp` endpoint.
+
+### Cursor
+
+To integrate this Wikipedia service with Cursor, configure Cursor to make requests to this worker's `/mcp` endpoint (e.g., `https://your-worker-name.your-subdomain.workers.dev/mcp` after deployment, or `http://localhost:8787/mcp` during local development).
+
+The request body should follow the JSON-RPC 2.0 specification:
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "wikipedia.search",
+  "params": { "query": "Cloudflare Workers", "limit": 5 },
+  "id": "cursor-req-123"
 }
-getById();
 ```
+Refer to Cursor\'s documentation for specific instructions.
 
-### GraphQL - cURL
-```bash
-curl -X POST http://localhost:3000/graphql \
-  -H "Content-Type: application/json" \
-  -d '{"query":"{ search(q:\"Node.js\") { title snippet pageid } }"}'
-```
+### Windsurf
 
-### GraphQL - Node.js
-```ts
-import { ApolloClient, InMemoryCache, gql } from '@apollo/client';
-const client = new ApolloClient({
-  uri: 'http://localhost:3000/graphql',
-  cache: new InMemoryCache()
-});
-client.query({
-  query: gql`{ page(title: "TypeScript") { title text } }`
-}).then(console.log);
+If Windsurf can consume standard JSON-RPC 2.0 endpoints over HTTP, configure it to point to this worker's `/mcp` endpoint (e.g., `https://your-worker-name.your-subdomain.workers.dev/mcp`).
 
-client.query({
-  query: gql`{ pageById(id: 21721040) { title text sections } }`
-}).then(console.log);
-```
-
-### JSON-RPC - Node.js (stdin/stdout)
-```ts
-import { StdioTransport } from './src/transport';
-import { JSONRPCServer } from './src/jsonrpc';
-
-const transport = new StdioTransport();
-const rpcServer = new JSONRPCServer(transport);
-rpcServer.on('search', async ({ q, limit }) => {
-  // implement your handler, e.g. call wikiSearch(q, limit)
-  return /* result */;
-});
-await rpcServer.start();
-```
+Consult the Windsurf documentation for details.
 
 ## Testing
-Run unit tests:
+
+**Note:** The existing tests (`src/__tests__/server.test.ts`) were designed for the previous Express server and are **not compatible** with the Cloudflare Worker setup. They need to be rewritten using tools suitable for testing Hono applications within a Worker context, such as:
+- Hono's built-in testing utilities (`app.request(...)`).
+- `vitest` with `miniflare` or a similar Worker environment simulator.
+
+*This section needs updates once tests are implemented.*
+
+## Usage Examples
+
+(Removed REST/GraphQL examples. Updated JSON-RPC examples to use a placeholder worker URL).
+
+### JSON-RPC - cURL
+
+(Replace `http://localhost:8787/mcp` with your deployed worker URL if testing against deployment)
+
 ```bash
-npm test
+# Search
+curl -X POST http://localhost:8787/mcp \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "jsonrpc": "2.0", 
+    "method": "wikipedia.search", 
+    "params": { "query": "Hono", "limit": 2 }, 
+    "id": "search-1"
+  }'
+
+# Get Page by Title
+curl -X POST http://localhost:8787/mcp \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "jsonrpc": "2.0", 
+    "method": "wikipedia.page", 
+    "params": { "title": "Cloudflare", "lang": "en" }, 
+    "id": "page-1"
+  }'
+
+# Get Page by ID
+curl -X POST http://localhost:8787/mcp \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "jsonrpc": "2.0", 
+    "method": "wikipedia.pageById", 
+    "params": { "id": 21721040, "lang": "en" }, 
+    "id": "pageid-1"
+  }'
 ```
 
-## Integration
+### JSON-RPC - Node.js (using node-fetch)
 
-### Standalone Server
-
-Run as a separate service and call endpoints over HTTP from your application or microservices.
-
-### Embedding in Your Express App
-
-Import handlers (if exposed) or proxy requests:
+(Replace `WORKER_URL` with your local or deployed worker URL)
 
 ```ts
-import express from 'express';
-import proxy from 'http-proxy-middleware';
-const app = express();
+import fetch from 'node-fetch';
 
-// Proxy to Wikipedia MCP server
-app.use('/api', proxy({ target: 'http://localhost:3000', changeOrigin: true }));
+const WORKER_URL = 'http://localhost:8787/mcp'; // Or your deployed URL
 
-app.listen(4000);
-```
+async function jsonRpcRequest(method: string, params: Record<string, any>) {
+  const response = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method,
+      params,
+      id: Date.now().toString() // Example ID
+    })
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+  return response.json();
+}
 
-*Alternatively*, extract request logic from `src/server.ts` to use functions directly in your codebase.
+async function main() {
+  try {
+    const searchResults = await jsonRpcRequest('wikipedia.search', { query: 'WebAssembly', limit: 3 });
+    console.log('Search:', JSON.stringify(searchResults, null, 2));
 
-## Desktop App Integration
+    const pageData = await jsonRpcRequest('wikipedia.page', { title: 'TypeScript' });
+    console.log('\\nPage:', JSON.stringify(pageData, null, 2));
+    
+    const pageByIdData = await jsonRpcRequest('wikipedia.pageById', { id: 21721040 }); // Example ID for Node.js page
+    console.log('\\nPage By ID:', JSON.stringify(pageByIdData, null, 2));
 
-Use a JSON config in your desktop (e.g., Electron) app:
-
-```json
-// config.json
-{
-  "mcpServer": {
-    "baseUrl": "http://localhost:3000",
-    "timeout": 5000
+  } catch (error) {
+      console.error('Error making JSON-RPC request:', error);
   }
 }
+
+main();
 ```
-
-Load and call endpoints:
-
-```ts
-import config from './config.json';
-
-const { baseUrl, timeout } = config.mcpServer;
-
-async function search(query: string) {
-  const res = await fetch(`${baseUrl}/search?q=${encodeURIComponent(query)}`, { timeout });
-  return res.json();
-}
-
-async function getPage(title: string) {
-  const res = await fetch(`${baseUrl}/page/${encodeURIComponent(title)}`, { timeout });
-  return res.json();
-}
-
-async function getPageById(id: number) {
-  const res = await fetch(`${baseUrl}/pageid/${id}?lang=en`, { timeout });
-  return res.json();
-}
-```
-
-## GraphQL API
-
-Interactive GraphQL Playground at `http://localhost:${PORT:-3000}/graphql`.
-
-**Example Query**
-```graphql
-query {
-  search(q: "TypeScript", limit: 5) {
-    title
-    snippet
-    pageid
-  }
-}
-```
-```graphql
-query GetPage { page(title: "Node.js") { title pageid text sections } }
-```
-```graphql
-query GetPageById {
-  pageById(id: 21721040) {
-    title
-    text
-    sections
-  }
-}
-```
-
-## SDK Generation
-
-Auto-generate a TypeScript client from OpenAPI:
-```bash
-npm run gen:client
-```
-Client will appear at `src/sdk/client.ts`, which you can import:
-```ts
-import { paths } from './sdk/client';
-```
-Use this for typed REST calls in your apps.
-
-## Docker (Optional)
-
-```dockerfile
-FROM node:16
-WORKDIR /app
-COPY . .
-RUN npm install && npm run build
-CMD ["npm","run","start"]
-```
-
-## Contributing
-
-Contributions welcome! Please open issues or PRs for features and bug fixes.
-
-## License
-
-MIT
