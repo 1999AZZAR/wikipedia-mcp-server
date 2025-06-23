@@ -49,7 +49,7 @@ An enterprise-grade Cloudflare Worker providing Wikipedia access via the Model C
 ## Installation
 
 ```bash
-git clone https://github.com/your-repo/wikipedia-mcp-server.git # Replace with your repo URL
+git clone https://github.com/1999AZZAR/wikipedia-mcp-server.git
 cd wikipedia-mcp-server
 npm install
 npm install -g wrangler # Or install locally: npm install --save-dev wrangler
