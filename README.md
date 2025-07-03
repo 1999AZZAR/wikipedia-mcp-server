@@ -8,12 +8,13 @@ An enterprise-grade Cloudflare Worker providing Wikipedia access via the Model C
 
 ## ✨ Features
 
-### 🎯 **Core MCP Methods**
-- **`wikipedia.search`** - Enhanced search with snippet control and pagination
-- **`wikipedia.page`** - Full page content with configurable sections, images, links, categories
-- **`wikipedia.pageById`** - Page retrieval by ID with same enhancement options
-- **`wikipedia.summary`** - Fast page summaries via Wikipedia REST API *(NEW)*
-- **`wikipedia.random`** - Random article discovery *(NEW)*
+### 🎯 **Core MCP Tools**
+- **`search`** - Enhanced search with snippet control and pagination.
+- **`getPage`** - Full page content with configurable sections, images, links, and categories.
+- **`getPageById`** - Page retrieval by ID with the same enhancement options.
+- **`getPageSummary`** - Fast page summaries via the Wikipedia REST API.
+- **`random`** - Random article discovery.
+- **`pageLanguages`** - Lists available languages for a given page.
 
 ### 🛡️ **Enterprise Resilience**
 - **Circuit Breaker Pattern** - Automatic failover between multiple Wikipedia endpoints
@@ -109,92 +110,120 @@ This command builds the worker using `npm run build` (as defined in `wrangler.to
 
 ## 🌐 API Endpoints
 
-### **POST /mcp** - Enhanced JSON-RPC 2.0 Interface
+### **POST /mcp** - Model Context Protocol (MCP) Interface
 
-**Core Methods:**
+The primary endpoint for interacting with the service. While it uses the Model Context Protocol, the current transport implementation allows for simple, stateless JSON-RPC-like requests.
 
-#### `wikipedia.search` - Enhanced Article Search
+**Core Tools:**
+
+#### `search` - Enhanced Article Search
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "wikipedia.search",
+  "method": "tools/call",
   "params": {
-    "query": "Albert Einstein",
-    "limit": 10,           // Optional: 1-50, default 10
-    "lang": "en",          // Optional: language code, default "en"
-    "offset": 0,           // Optional: pagination offset, default 0
-    "includeSnippets": true // Optional: include search snippets, default true
+    "name": "search",
+    "arguments": {
+      "query": "Albert Einstein",
+      "limit": 10,
+      "lang": "en",
+      "offset": 0,
+      "includeSnippets": true
+    }
   },
   "id": "search-1"
 }
 ```
 
-#### `wikipedia.page` - Enhanced Page Content
+#### `getPage` - Enhanced Page Content
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "wikipedia.page",
+  "method": "tools/call",
   "params": {
-    "title": "Albert Einstein",
-    "lang": "en",          // Optional: language code, default "en"
-    "sections": true,      // Optional: include sections, default true
-    "images": false,       // Optional: include images, default false
-    "links": false,        // Optional: include links, default false
-    "categories": false    // Optional: include categories, default false
+    "name": "getPage",
+    "arguments": {
+      "title": "Albert Einstein",
+      "lang": "en",
+      "sections": true,
+      "images": false,
+      "links": false,
+      "categories": false
+    }
   },
   "id": "page-1"
 }
 ```
 
-#### `wikipedia.pageById` - Page by ID
+#### `getPageById` - Page by ID
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "wikipedia.pageById",
+  "method": "tools/call",
   "params": {
-    "id": 736,             // Wikipedia page ID
-    "lang": "en",          // Optional: language code
-    "sections": true,      // Same options as wikipedia.page
-    "images": false,
-    "links": false,
-    "categories": false
+    "name": "getPageById",
+    "arguments": {
+      "id": 736,
+      "lang": "en",
+      "sections": true,
+      "images": false,
+      "links": false,
+      "categories": false
+    }
   },
   "id": "pageid-1"
 }
 ```
 
-**New Enhanced Methods:**
-
-#### `wikipedia.summary` - Fast Page Summaries ✨
+#### `getPageSummary` - Fast Page Summaries ✨
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "wikipedia.summary",
+  "method": "tools/call",
   "params": {
-    "title": "Albert Einstein",
-    "lang": "en"           // Optional: language code
+    "name": "getPageSummary",
+    "arguments": {
+      "title": "Albert Einstein",
+      "lang": "en"
+    }
   },
   "id": "summary-1"
 }
 ```
 
-#### `wikipedia.random` - Random Article Discovery ✨
+#### `random` - Random Article Discovery ✨
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "wikipedia.random",
+  "method": "tools/call",
   "params": {
-    "lang": "en"           // Optional: language code
+    "name": "random",
+    "arguments": {
+      "lang": "en"
+    }
   },
   "id": "random-1"
 }
 ```
 
-### **GET /health** - Service Health & Monitoring
-Returns comprehensive health status, endpoint availability, cache metrics, and performance analytics.
+#### `pageLanguages` - Page Language Availability ✨
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "pageLanguages",
+    "arguments": {
+      "title": "Albert Einstein",
+      "lang": "en"
+    }
+  },
+  "id": "languages-1"
+}
+```
 
-### **GET /metrics** - Real-time Analytics Dashboard
-Returns detailed monitoring data including request rates, error rates, popular queries, and performance metrics.
+### **GET /health** - Service Health & Monitoring
+Returns comprehensive health status, endpoint availability, cache metrics, and performance analytics. **Note:** This endpoint includes the data previously found at the `/metrics` endpoint.
 
 ## Integrations
 
@@ -206,12 +235,15 @@ This MCP-compliant Wikipedia server can be integrated into various tools and pla
 
 To integrate this Wikipedia service with Cursor, configure Cursor to make requests to this worker's `/mcp` endpoint (e.g., `https://your-worker-name.your-subdomain.workers.dev/mcp` after deployment, or `http://localhost:8787/mcp` during local development).
 
-The request body should follow the JSON-RPC 2.0 specification:
+The request body should follow the MCP `tools/call` format:
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "wikipedia.search",
-  "params": { "query": "Cloudflare Workers", "limit": 5 },
+  "method": "tools/call",
+  "params": {
+    "name": "search",
+    "arguments": { "query": "Cloudflare Workers", "limit": 5 }
+  },
   "id": "cursor-req-123"
 }
 ```
@@ -219,7 +251,7 @@ Refer to Cursor\'s documentation for specific instructions.
 
 ### Windsurf
 
-If Windsurf can consume standard JSON-RPC 2.0 endpoints over HTTP, configure it to point to this worker's `/mcp` endpoint (e.g., `https://your-worker-name.your-subdomain.workers.dev/mcp`).
+If Windsurf can consume standard MCP endpoints over HTTP, configure it to point to this worker's `/mcp` endpoint (e.g., `https://your-worker-name.your-subdomain.workers.dev/mcp`).
 
 Consult the Windsurf documentation for details.
 
@@ -245,18 +277,15 @@ npm run dev
 # Test enhanced search
 curl -X POST http://localhost:8787/mcp \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"wikipedia.search","params":{"query":"Einstein","limit":3},"id":"test-1"}'
+  -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search","arguments":{"query":"Einstein","limit":3}},"id":"test-1"}'
 
 # Test new summary method
 curl -X POST http://localhost:8787/mcp \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"wikipedia.summary","params":{"title":"Albert Einstein"},"id":"test-2"}'
+  -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"getPageSummary","arguments":{"title":"Albert Einstein"}},"id":"test-2"}'
 
 # Check health status
 curl http://localhost:8787/health
-
-# View analytics
-curl http://localhost:8787/metrics
 ```
 
 ## 📊 Performance Benchmarks
@@ -287,12 +316,15 @@ curl -X POST http://localhost:8787/mcp \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0", 
-    "method": "wikipedia.search", 
+    "method": "tools/call", 
     "params": { 
-      "query": "Artificial Intelligence", 
-      "limit": 5,
-      "includeSnippets": true,
-      "lang": "en"
+      "name": "search", 
+      "arguments": { 
+        "query": "Artificial Intelligence", 
+        "limit": 5,
+        "includeSnippets": true,
+        "lang": "en"
+      }
     }, 
     "id": "search-1"
   }'
@@ -302,13 +334,16 @@ curl -X POST http://localhost:8787/mcp \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0", 
-    "method": "wikipedia.page", 
+    "method": "tools/call", 
     "params": { 
-      "title": "Machine Learning",
-      "lang": "en",
-      "sections": true,
-      "images": true,
-      "categories": true
+      "name": "getPage", 
+      "arguments": { 
+        "title": "Machine Learning",
+        "lang": "en",
+        "sections": true,
+        "images": true,
+        "categories": true
+      }
     }, 
     "id": "page-1"
   }'
@@ -318,10 +353,13 @@ curl -X POST http://localhost:8787/mcp \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0", 
-    "method": "wikipedia.summary", 
+    "method": "tools/call", 
     "params": { 
-      "title": "Albert Einstein",
-      "lang": "en"
+      "name": "getPageSummary", 
+      "arguments": { 
+        "title": "Albert Einstein",
+        "lang": "en"
+      }
     }, 
     "id": "summary-1"
   }'
@@ -331,16 +369,18 @@ curl -X POST http://localhost:8787/mcp \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0", 
-    "method": "wikipedia.random", 
-    "params": { "lang": "en" }, 
+    "method": "tools/call", 
+    "params": { 
+      "name": "random", 
+      "arguments": { 
+        "lang": "en"
+      }
+    }, 
     "id": "random-1"
   }'
 
 # Health Check
 curl http://localhost:8787/health
-
-# Analytics Dashboard
-curl http://localhost:8787/metrics
 ```
 
 ### Node.js/TypeScript Integration
@@ -370,22 +410,22 @@ class WikipediaClient {
 
   // Enhanced search with full options
   async search(query: string, options = {}) {
-    return this.jsonRpc('wikipedia.search', { query, ...options });
+    return this.jsonRpc('tools/call', { name: 'search', arguments: { query, ...options } });
   }
 
   // Fast summaries for quick info
   async summary(title: string, lang = 'en') {
-    return this.jsonRpc('wikipedia.summary', { title, lang });
+    return this.jsonRpc('tools/call', { name: 'getPageSummary', arguments: { title, lang } });
   }
 
   // Get page with enhanced options
   async page(title: string, options = {}) {
-    return this.jsonRpc('wikipedia.page', { title, ...options });
+    return this.jsonRpc('tools/call', { name: 'getPage', arguments: { title, ...options } });
   }
 
   // Random article discovery
   async random(lang = 'en') {
-    return this.jsonRpc('wikipedia.random', { lang });
+    return this.jsonRpc('tools/call', { name: 'random', arguments: { lang } });
   }
 
   // Health monitoring

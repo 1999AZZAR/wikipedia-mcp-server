@@ -4,20 +4,18 @@ This document details all the tools (methods) available through the Enhanced Wik
 
 ## 🌟 Overview
 
-The Enhanced Wikipedia MCP Server provides **5 powerful tools** for Wikipedia interaction:
+The Enhanced Wikipedia MCP Server provides **6 powerful tools** for Wikipedia interaction:
 
-### 🎯 **Core Enhanced Methods**
-1. **`wikipedia.search`** - Enhanced search with snippet control and pagination
-2. **`wikipedia.page`** - Enhanced page retrieval with images, links, categories
-3. **`wikipedia.pageById`** - Enhanced page by ID with same enhancement options
-
-### ✨ **New Methods**
-4. **`wikipedia.summary`** - Fast page summaries via Wikipedia REST API *(NEW)*
-5. **`wikipedia.random`** - Random article discovery *(NEW)*
+### 🎯 **Core Enhanced Tools**
+1. **`search`** - Enhanced search with snippet control and pagination
+2. **`getPage`** - Enhanced page retrieval with images, links, categories
+3. **`getPageById`** - Enhanced page by ID with same enhancement options
+4. **`getPageSummary`** - Fast page summaries via Wikipedia REST API
+5. **`random`** - Random article discovery
+6. **`pageLanguages`** - Lists available languages for a given page
 
 ### 🔍 **Monitoring Endpoints**
-- **`GET /health`** - Comprehensive health status and diagnostics
-- **`GET /metrics`** - Real-time analytics and performance monitoring
+- **`GET /health`** - Comprehensive health status, diagnostics, and real-time analytics.
 
 ## 🛡️ Enterprise Features
 
@@ -31,14 +29,17 @@ The Enhanced Wikipedia MCP Server provides **5 powerful tools** for Wikipedia in
 
 ## 📋 Base Request Format
 
-All requests follow JSON-RPC 2.0 specification via the `/mcp` endpoint:
+All tool calls are sent to the `/mcp` endpoint and must use the `tools/call` method:
 
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "<tool_name>",
+  "method": "tools/call",
   "params": {
-    // Tool-specific parameters
+    "name": "<tool_name>",
+    "arguments": {
+        // Tool-specific arguments
+    }
   },
   "id": "<unique_request_id>"
 }
@@ -48,13 +49,13 @@ All requests follow JSON-RPC 2.0 specification via the `/mcp` endpoint:
 
 ## 🔧 Enhanced Tools Reference
 
-### 1. wikipedia.search (Enhanced)
+### 1. search (Enhanced)
 
 Advanced Wikipedia article search with snippet control, pagination, and smart caching.
 
-#### Parameters
+#### Arguments
 
-| Parameter | Type | Required | Default | Validation | Description |
+| Argument | Type | Required | Default | Validation | Description |
 |-----------|------|----------|---------|------------|-------------|
 | `query` | string | ✅ Yes | - | Min 1 char, max 500 | The search query string |
 | `limit` | number | ❌ No | 10 | 1-50, integer | Maximum number of results |
@@ -67,13 +68,16 @@ Advanced Wikipedia article search with snippet control, pagination, and smart ca
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "wikipedia.search",
+  "method": "tools/call",
   "params": {
-    "query": "artificial intelligence machine learning",
-    "limit": 10,
-    "lang": "en",
-    "offset": 0,
-    "includeSnippets": true
+    "name": "search",
+    "arguments": {
+      "query": "artificial intelligence machine learning",
+      "limit": 10,
+      "lang": "en",
+      "offset": 0,
+      "includeSnippets": true
+    }
   },
   "id": "search-123"
 }
@@ -84,30 +88,38 @@ Advanced Wikipedia article search with snippet control, pagination, and smart ca
 ```json
 {
   "jsonrpc": "2.0",
-  "result": [
-    {
-      "title": "Artificial intelligence",
-      "snippet": "Artificial intelligence (AI) is intelligence demonstrated by machines, as opposed to natural intelligence displayed by animals including humans...",
-      "pageid": 1266637,
-      "size": 125420,
-      "wordcount": 15892,
-      "timestamp": "2024-01-15T08:30:00Z"
-    }
-    // ... more results
-  ],
+  "result": {
+      "structuredContent": [
+        {
+          "title": "Artificial intelligence",
+          "snippet": "Artificial intelligence (AI) is intelligence demonstrated by machines, as opposed to natural intelligence displayed by animals including humans...",
+          "pageid": 1266637,
+          "size": 125420,
+          "wordcount": 15892,
+          "timestamp": "2024-01-15T08:30:00Z"
+        }
+        // ... more results
+      ],
+      "content": [
+          {
+              "type": "text",
+              "text": "Found 10 results for \"artificial intelligence machine learning\""
+          }
+      ]
+  },
   "id": "search-123"
 }
 ```
 
 ---
 
-### 2. wikipedia.page (Enhanced)
+### 2. getPage (Enhanced)
 
 Retrieve comprehensive Wikipedia page content with configurable enhancement options.
 
-#### Parameters
+#### Arguments
 
-| Parameter | Type | Required | Default | Validation | Description |
+| Argument | Type | Required | Default | Validation | Description |
 |-----------|------|----------|---------|------------|-------------|
 | `title` | string | ✅ Yes | - | Min 1 char | Exact Wikipedia page title |
 | `lang` | string | ❌ No | "en" | ISO 639-1 code | Wikipedia language edition |
@@ -121,72 +133,34 @@ Retrieve comprehensive Wikipedia page content with configurable enhancement opti
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "wikipedia.page",
+  "method": "tools/call",
   "params": {
-    "title": "Machine learning",
-    "lang": "en",
-    "sections": true,
-    "images": true,
-    "links": true,
-    "categories": true
+    "name": "getPage",
+    "arguments": {
+        "title": "Machine learning",
+        "lang": "en",
+        "sections": true,
+        "images": true,
+        "links": true,
+        "categories": true
+    }
   },
   "id": "page-456"
 }
 ```
 
 #### Enhanced Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "result": {
-    "title": "Machine learning",
-    "pageid": 233488,
-    "text": {
-      "*": "<div>Full HTML content...</div>"
-    },
-    "sections": [
-      {
-        "toclevel": 1,
-        "level": "2",
-        "line": "Overview",
-        "number": "1",
-        "index": "1"
-      }
-    ],
-    "images": [
-      {
-        "name": "Machine_learning_diagram.svg",
-        "url": "https://upload.wikimedia.org/wikipedia/commons/...",
-        "descriptionurl": "https://commons.wikimedia.org/wiki/File:..."
-      }
-    ],
-    "links": [
-      {
-        "title": "Artificial intelligence",
-        "pageid": 1266637
-      }
-    ],
-    "categories": [
-      {
-        "category": "Machine learning",
-        "hidden": false
-      }
-    ]
-  },
-  "id": "page-456"
-}
-```
+The `structuredContent` will contain the parsed page data, while the `content` field will provide a simple text confirmation.
 
 ---
 
-### 3. wikipedia.pageById (Enhanced)
+### 3. getPageById (Enhanced)
 
-Retrieve Wikipedia page by numeric ID with same enhancement options as `wikipedia.page`.
+Retrieve Wikipedia page by numeric ID with same enhancement options as `getPage`.
 
-#### Parameters
+#### Arguments
 
-| Parameter | Type | Required | Default | Validation | Description |
+| Argument | Type | Required | Default | Validation | Description |
 |-----------|------|----------|---------|------------|-------------|
 | `id` | number | ✅ Yes | - | Positive integer | Wikipedia page ID |
 | `lang` | string | ❌ No | "en" | ISO 639-1 code | Wikipedia language edition |
@@ -200,29 +174,32 @@ Retrieve Wikipedia page by numeric ID with same enhancement options as `wikipedi
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "wikipedia.pageById",
+  "method": "tools/call",
   "params": {
-    "id": 233488,
-    "lang": "en",
-    "sections": true,
-    "images": false
+    "name": "getPageById",
+    "arguments": {
+      "id": 233488,
+      "lang": "en",
+      "sections": true,
+      "images": false
+    }
   },
   "id": "pageid-789"
 }
 ```
 
 #### Response Format
-Same enhanced structure as `wikipedia.page` method.
+Same enhanced structure as `getPage` method.
 
 ---
 
-### 4. wikipedia.summary ✨ (NEW)
+### 4. getPageSummary ✨ (NEW)
 
 Get fast, concise page summaries using Wikipedia's REST API for optimal performance.
 
-#### Parameters
+#### Arguments
 
-| Parameter | Type | Required | Default | Validation | Description |
+| Argument | Type | Required | Default | Validation | Description |
 |-----------|------|----------|---------|------------|-------------|
 | `title` | string | ✅ Yes | - | Min 1 char | Wikipedia page title |
 | `lang` | string | ❌ No | "en" | ISO 639-1 code | Wikipedia language edition |
@@ -232,52 +209,30 @@ Get fast, concise page summaries using Wikipedia's REST API for optimal performa
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "wikipedia.summary",
+  "method": "tools/call",
   "params": {
-    "title": "Albert Einstein",
-    "lang": "en"
+    "name": "getPageSummary",
+    "arguments": {
+        "title": "Albert Einstein",
+        "lang": "en"
+    }
   },
   "id": "summary-123"
 }
 ```
 
 #### Response Format
-
-```json
-{
-  "jsonrpc": "2.0",
-  "result": {
-    "title": "Albert Einstein",
-    "pageid": 736,
-    "extract": "Albert Einstein was a German-born theoretical physicist who is widely held to be one of the greatest and most influential scientists of all time...",
-    "extract_html": "<p><b>Albert Einstein</b> was a German-born theoretical physicist...</p>",
-    "thumbnail": {
-      "source": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Albert_Einstein_Head.jpg/320px-Albert_Einstein_Head.jpg",
-      "width": 320,
-      "height": 393
-    },
-    "originalimage": {
-      "source": "https://upload.wikimedia.org/wikipedia/commons/d/d3/Albert_Einstein_Head.jpg",
-      "width": 1024,
-      "height": 1260
-    },
-    "lang": "en",
-    "dir": "ltr",
-    "timestamp": "2024-01-15T08:30:00Z"
-  },
-  "id": "summary-123"
-}
-```
+The `structuredContent` will contain the summary data from the Wikipedia API.
 
 ---
 
-### 5. wikipedia.random ✨ (NEW)
+### 5. random ✨ (NEW)
 
 Discover random Wikipedia articles for content exploration and serendipitous learning.
 
-#### Parameters
+#### Arguments
 
-| Parameter | Type | Required | Default | Validation | Description |
+| Argument | Type | Required | Default | Validation | Description |
 |-----------|------|----------|---------|------------|-------------|
 | `lang` | string | ❌ No | "en" | ISO 639-1 code | Wikipedia language edition |
 
@@ -286,48 +241,65 @@ Discover random Wikipedia articles for content exploration and serendipitous lea
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "wikipedia.random",
+  "method": "tools/call",
   "params": {
-    "lang": "en"
+    "name": "random",
+    "arguments": {
+        "lang": "en"
+    }
   },
   "id": "random-456"
 }
 ```
 
 #### Response Format
+The `structuredContent` will contain the random page data from the Wikipedia API.
 
+---
+
+### 6. pageLanguages ✨ (NEW)
+
+Lists the language editions available for a specific Wikipedia page.
+
+#### Arguments
+
+| Argument | Type | Required | Default | Validation | Description |
+|-----------|------|----------|---------|------------|-------------|
+| `title` | string | ✅ Yes | - | Min 1 char | Wikipedia page title |
+| `lang` | string | ❌ No | "en" | ISO 639-1 code | The origin language edition |
+
+#### Example Request
 ```json
 {
   "jsonrpc": "2.0",
-  "result": {
-    "title": "Quantum entanglement",
-    "pageid": 52871,
-    "extract": "Quantum entanglement is a phenomenon in quantum physics where two or more particles become correlated in such a way that the quantum state of each particle cannot be described independently...",
-    "thumbnail": {
-      "source": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Quantum_entanglement.svg/320px-Quantum_entanglement.svg.png",
-      "width": 320,
-      "height": 240
-    },
-    "lang": "en",
-    "timestamp": "2024-01-15T08:30:00Z"
+  "method": "tools/call",
+  "params": {
+    "name": "pageLanguages",
+    "arguments": {
+      "title": "Albert Einstein",
+      "lang": "en"
+    }
   },
-  "id": "random-456"
+  "id": "languages-1"
 }
 ```
+
+#### Response Format
+The `structuredContent` will contain the list of available languages.
 
 ---
 
 ## 🔍 Monitoring Endpoints
 
-### GET /health - Health Check & Diagnostics
+### GET /health - Health, Diagnostics & Analytics
 
-Returns comprehensive system health status and diagnostics.
+Returns comprehensive system health status, diagnostics, and real-time analytics. This single endpoint provides all monitoring data.
 
 #### Response Format
 
 ```json
 {
-  "status": "healthy",
+  "status": "ok",
   "timestamp": "2024-01-15T10:30:00.000Z",
   "version": "1.0.0",
   "uptime": 86400,
@@ -360,66 +332,6 @@ Returns comprehensive system health status and diagnostics.
     "requestRate": 15.2,
     "errorRate": 0.008,
     "avgResponseTime": 145
-  }
-}
-```
-
-### GET /metrics - Analytics Dashboard
-
-Provides detailed performance analytics and usage statistics.
-
-#### Response Format
-
-```json
-{
-  "timestamp": "2024-01-15T10:30:00.000Z",
-  "performance": {
-    "requestCount": 15420,
-    "errorCount": 123,
-    "avgResponseTime": 145,
-    "p95ResponseTime": 280,
-    "requestRate": 15.2,
-    "errorRate": 0.008
-  },
-  "cache": {
-    "memoryHitRate": 0.78,
-    "kvHitRate": 0.85,
-    "totalHits": 12080,
-    "totalMisses": 3340
-  },
-  "methods": {
-    "wikipedia.search": {
-      "count": 8900,
-      "avgTime": 135,
-      "errorRate": 0.005
-    },
-    "wikipedia.page": {
-      "count": 4200,
-      "avgTime": 180,
-      "errorRate": 0.012
-    },
-    "wikipedia.summary": {
-      "count": 2100,
-      "avgTime": 95,
-      "errorRate": 0.003
-    },
-    "wikipedia.random": {
-      "count": 220,
-      "avgTime": 85,
-      "errorRate": 0.001
-    }
-  },
-  "popular": {
-    "queries": [
-      {"query": "artificial intelligence", "count": 245},
-      {"query": "machine learning", "count": 189},
-      {"query": "python programming", "count": 156}
-    ],
-    "languages": [
-      {"lang": "en", "count": 12400},
-      {"lang": "es", "count": 1800},
-      {"lang": "fr", "count": 1220}
-    ]
   }
 }
 ```
@@ -530,12 +442,15 @@ curl -X POST https://your-worker.workers.dev/mcp \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
-    "method": "wikipedia.search",
+    "method": "tools/call",
     "params": {
-      "query": "quantum computing",
-      "limit": 5,
-      "includeSnippets": true,
-      "lang": "en"
+      "name": "search",
+      "arguments": {
+        "query": "quantum computing",
+        "limit": 5,
+        "includeSnippets": true,
+        "lang": "en"
+      }
     },
     "id": "search-1"
   }'
@@ -545,13 +460,16 @@ curl -X POST https://your-worker.workers.dev/mcp \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
-    "method": "wikipedia.page",
+    "method": "tools/call",
     "params": {
-      "title": "Artificial Intelligence",
-      "sections": true,
-      "images": true,
-      "links": true,
-      "categories": true
+      "name": "getPage",
+      "arguments": {
+        "title": "Artificial Intelligence",
+        "sections": true,
+        "images": true,
+        "links": true,
+        "categories": true
+      }
     },
     "id": "page-1"
   }'
@@ -561,8 +479,11 @@ curl -X POST https://your-worker.workers.dev/mcp \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
-    "method": "wikipedia.summary",
-    "params": {"title": "Machine Learning"},
+    "method": "tools/call",
+    "params": {
+      "name": "getPageSummary",
+      "arguments": {"title": "Machine Learning"}
+    },
     "id": "summary-1"
   }'
 
@@ -571,8 +492,11 @@ curl -X POST https://your-worker.workers.dev/mcp \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
-    "method": "wikipedia.random",
-    "params": {"lang": "en"},
+    "method": "tools/call",
+    "params": {
+      "name": "random",
+      "arguments": {"lang": "en"}
+    },
     "id": "random-1"
   }'
 
@@ -619,19 +543,19 @@ class EnhancedWikipediaClient implements WikipediaClient {
   }
 
   async search(query: string, options: SearchOptions = {}) {
-    return this.jsonRpc('wikipedia.search', { query, ...options });
+    return this.jsonRpc('tools/call', { name: 'search', arguments: { query, ...options } });
   }
 
   async summary(title: string, lang = 'en') {
-    return this.jsonRpc('wikipedia.summary', { title, lang });
+    return this.jsonRpc('tools/call', { name: 'getPageSummary', arguments: { title, lang } });
   }
 
   async page(title: string, options: PageOptions = {}) {
-    return this.jsonRpc('wikipedia.page', { title, ...options });
+    return this.jsonRpc('tools/call', { name: 'getPage', arguments: { title, ...options } });
   }
 
   async random(lang = 'en') {
-    return this.jsonRpc('wikipedia.random', { lang });
+    return this.jsonRpc('tools/call', { name: 'random', arguments: { lang } });
   }
 
   async health() {
@@ -650,7 +574,7 @@ const wiki = new EnhancedWikipediaClient();
 
 // Quick summary for AI assistance
 const summary = await wiki.summary('Quantum Computing');
-console.log(summary.extract);
+console.log(summary.structuredContent[0].extract);
 
 // Enhanced search with full options
 const results = await wiki.search('machine learning', {
@@ -708,20 +632,20 @@ class EnhancedWikipediaClient:
     def search(self, query: str, limit: int = 10, **kwargs) -> List[Dict]:
         """Enhanced search with snippet control."""
         params = {"query": query, "limit": limit, **kwargs}
-        return self._json_rpc("wikipedia.search", params)
+        return self._json_rpc("tools/call", {"name": "search", "arguments": params})
     
     def summary(self, title: str, lang: str = "en") -> Dict:
         """Get fast page summary."""
-        return self._json_rpc("wikipedia.summary", {"title": title, "lang": lang})
+        return self._json_rpc("tools/call", {"name": "getPageSummary", "arguments": {"title": title, "lang": lang}})
     
     def page(self, title: str, **options) -> Optional[Dict]:
         """Get enhanced page content."""
         params = {"title": title, **options}
-        return self._json_rpc("wikipedia.page", params)
+        return self._json_rpc("tools/call", {"name": "getPage", "arguments": params})
     
     def random(self, lang: str = "en") -> Dict:
         """Get random article."""
-        return self._json_rpc("wikipedia.random", {"lang": lang})
+        return self._json_rpc("tools/call", {"name": "random", "arguments": {"lang": lang}})
     
     def health(self) -> Dict:
         """Get service health status."""
@@ -738,7 +662,7 @@ client = EnhancedWikipediaClient()
 
 # Quick AI-friendly summaries
 einstein = client.summary("Albert Einstein")
-print(f"Summary: {einstein['extract'][:200]}...")
+print(f"Summary: {einstein['structuredContent'][0]['extract'][:200]}...")
 
 # Enhanced search
 ai_results = client.search("artificial intelligence", limit=5, includeSnippets=True)
@@ -747,7 +671,7 @@ for result in ai_results:
 
 # Random discovery
 random_article = client.random()
-print(f"Random article: {random_article['title']}")
+print(f"Random article: {random_article['structuredContent'][0]['title']}")
 
 # Monitor performance
 health = client.health()
@@ -772,7 +696,7 @@ print(f"Status: {health['status']}, Response time: {health['wikipedia']['endpoin
 5. **Handle errors gracefully** with exponential backoff
 
 ### Performance Tips
-- Use **`wikipedia.summary`** for quick information needs
+- Use **`tools/call`** for quick information needs
 - Enable **all caching layers** (memory + KV) for production
 - **Batch similar requests** when possible
 - **Monitor cache hit rates** via `/metrics` endpoint
