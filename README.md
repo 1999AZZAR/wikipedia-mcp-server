@@ -229,36 +229,40 @@ Returns comprehensive health status, endpoint availability, cache metrics, and p
 
 This MCP-compliant Wikipedia server can be integrated into any tool that supports the Model Context Protocol, such as Cursor or VS Code.
 
-To connect a client, you will use the local proxy script which manages the connection to the remote Cloudflare Worker. This allows you to use the same `command`-based setup as other MCP servers.
+To make the server's command available to your client (like Cursor), you need to install it globally from this project's directory. This is a one-time setup step.
 
-### Client Configuration (Cursor, mcp.json, etc.)
+### Step 1: Install the Local Proxy Command
 
-In your client's MCP configuration file (e.g., `mcp.json` for Cursor or VS Code), add the following entry. This tells the client to run your local project's proxy script.
+Navigate to this project's root directory in your terminal and run the following command.
 
-First, make sure you've installed the project's dependencies:
 ```bash
-npm install
+npm install -g .
 ```
+This will do two things:
+1.  Install dependencies.
+2.  Create a global `wikipedia-mcp` command that points to the local proxy script.
 
-Then, add this to your configuration:
+You only need to do this once. If you pull new changes for the proxy script in the future, you should run this command again.
+
+### Step 2: Configure Your MCP Client
+
+Now, in your client's MCP configuration file (e.g., `~/.cursor/mcp.json`), you can use the globally available command. This is much cleaner and doesn't require absolute paths.
+
 ```json
 {
   "mcpServers": {
     "wikipedia-mcp": {
-      "command": "node",
+      "command": "wikipedia-mcp",
       "args": [
-        "/path/to/your/project/wikipedia-mcp-server/bin/proxy.js",
         "https://your-worker-name.your-subdomain.workers.dev/mcp"
       ]
     }
   }
 }
 ```
-**Important:** 
-1. Replace `/path/to/your/project/` with the actual absolute path to this project's directory on your computer.
-2. Replace `https://your-worker-name.your-subdomain.workers.dev/mcp` with the URL of your deployed Cloudflare Worker.
+**Important:** Replace `https://your-worker-name.your-subdomain.workers.dev/mcp` with the URL of your deployed Cloudflare Worker.
 
-This method provides a stable, stateful connection for your client by running the proxy locally, which then communicates with the deployed stateless worker.
+This method is more robust and aligns with how you use other command-line based MCP servers.
 
 ## ✅ Testing
 
