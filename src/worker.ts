@@ -8,7 +8,7 @@ import { MonitoringService } from './monitoring';
 import { z } from 'zod';
 import LRUCache from 'lru-cache';
 import { createWikipediaMcp } from './mcp';
-import { isJSONRPCResponse, isJSONRPCError } from '@modelcontextprotocol/sdk/dist/esm/types.js';
+import { isJSONRPCResponse, isJSONRPCError } from '@modelcontextprotocol/sdk/types';
 
 // Environment bindings interface
 interface EnvBindings {
