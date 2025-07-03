@@ -225,35 +225,40 @@ The primary endpoint for interacting with the service. While it uses the Model C
 ### **GET /health** - Service Health & Monitoring
 Returns comprehensive health status, endpoint availability, cache metrics, and performance analytics. **Note:** This endpoint includes the data previously found at the `/metrics` endpoint.
 
-## Integrations
+## Integrations & Client Setup
 
-(This section remains largely the same, just update example URLs if needed)
+This MCP-compliant Wikipedia server can be integrated into any tool that supports the Model Context Protocol, such as Cursor or VS Code.
 
-This MCP-compliant Wikipedia server can be integrated into various tools and platforms that support consuming JSON-RPC 2.0 services over HTTP. The primary integration point is the `/mcp` endpoint.
+To connect a client, you will use the local proxy script which manages the connection to the remote Cloudflare Worker. This allows you to use the same `command`-based setup as other MCP servers.
 
-### Cursor
+### Client Configuration (Cursor, mcp.json, etc.)
 
-To integrate this Wikipedia service with Cursor, configure Cursor to make requests to this worker's `/mcp` endpoint (e.g., `https://your-worker-name.your-subdomain.workers.dev/mcp` after deployment, or `http://localhost:8787/mcp` during local development).
+In your client's MCP configuration file (e.g., `mcp.json` for Cursor or VS Code), add the following entry. This tells the client to run your local project's proxy script.
 
-The request body should follow the MCP `tools/call` format:
+First, make sure you've installed the project's dependencies:
+```bash
+npm install
+```
+
+Then, add this to your configuration:
 ```json
 {
-  "jsonrpc": "2.0",
-  "method": "tools/call",
-  "params": {
-    "name": "search",
-    "arguments": { "query": "Cloudflare Workers", "limit": 5 }
-  },
-  "id": "cursor-req-123"
+  "mcpServers": {
+    "wikipedia-mcp": {
+      "command": "node",
+      "args": [
+        "/path/to/your/project/wikipedia-mcp-server/bin/proxy.js",
+        "https://your-worker-name.your-subdomain.workers.dev/mcp"
+      ]
+    }
+  }
 }
 ```
-Refer to Cursor\'s documentation for specific instructions.
+**Important:** 
+1. Replace `/path/to/your/project/` with the actual absolute path to this project's directory on your computer.
+2. Replace `https://your-worker-name.your-subdomain.workers.dev/mcp` with the URL of your deployed Cloudflare Worker.
 
-### Windsurf
-
-If Windsurf can consume standard MCP endpoints over HTTP, configure it to point to this worker's `/mcp` endpoint (e.g., `https://your-worker-name.your-subdomain.workers.dev/mcp`).
-
-Consult the Windsurf documentation for details.
+This method provides a stable, stateful connection for your client by running the proxy locally, which then communicates with the deployed stateless worker.
 
 ## ✅ Testing
 
@@ -460,6 +465,17 @@ const randomArticle = await wiki.random();
 ```
 
 ## 🏗️ Architecture
+
+### **Client Connection Proxy**
+To bridge the gap between stateful MCP clients (like Cursor) and the stateless Cloudflare Worker, the server now includes a local proxy script.
+
+`Client <--> Local Proxy (Stateful, Stdio) <--> Remote Worker (Stateless, HTTPS)`
+
+- **Client**: Your editor or tool (e.g., Cursor).
+- **Local Proxy**: The `bin/proxy.js` script. It maintains a persistent connection with the client over `stdio` and translates messages into individual HTTPS requests.
+- **Remote Worker**: The deployed Cloudflare Worker that executes the request and returns a result.
+
+This architecture ensures maximum scalability on the edge while providing a great developer experience locally.
 
 ### **Enhanced Service Layer**
 ```

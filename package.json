@@ -2,6 +2,9 @@
   "name": "wikipedia-mcp-server",
   "version": "1.0.0",
   "private": true,
+  "bin": {
+    "wikipedia-mcp": "bin/proxy.js"
+  },
   "main": "dist/worker.js",
   "scripts": {
     "build": "tsc",
