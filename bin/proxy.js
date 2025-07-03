@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
-const { Server } = require('@modelcontextprotocol/sdk/server');
-const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/transport/stdio');
+const readline = require('readline');
 
 const REMOTE_WORKER_URL = process.argv[2];
 
@@ -11,44 +10,55 @@ if (!REMOTE_WORKER_URL) {
   process.exit(1);
 }
 
-async function main() {
-  const server = new Server({ name: 'wikipedia-proxy', version: '1.0.0' });
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  terminal: false
+});
 
-  server.fallbackRequestHandler = async (request) => {
-    try {
-      const response = await fetch(REMOTE_WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
-      });
+let headers = {};
+let contentLength = 0;
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Proxy error response from remote: ${errorText}`);
-        throw new Error(`Remote server returned error: ${response.status} ${response.statusText}`);
-      }
+rl.on('line', (line) => {
+  if (line.startsWith('Content-Length:')) {
+    contentLength = parseInt(line.substring(15).trim(), 10);
+    headers['Content-Length'] = contentLength;
+  } else if (line === '') {
+    // End of headers, start reading the body
+    rl.input.read(contentLength);
+  }
+});
 
-      const jsonResponse = await response.json();
-      
-      if (jsonResponse.error) {
-        throw jsonResponse.error;
-      }
+rl.input.on('readable', async () => {
+    if (contentLength > 0) {
+        const bodyBuffer = rl.input.read(contentLength);
+        if (bodyBuffer) {
+            const body = bodyBuffer.toString('utf-8');
+            try {
+                const request = JSON.parse(body);
 
-      return jsonResponse.result;
+                const response = await fetch(REMOTE_WORKER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(request),
+                });
+                
+                const responseJson = await response.json();
+                const responseString = JSON.stringify(responseJson);
+                const responseBuffer = Buffer.from(responseString, 'utf-8');
+                
+                // Write response with correct headers for the MCP client
+                process.stdout.write(`Content-Length: ${responseBuffer.length}\r\n`);
+                process.stdout.write('\r\n');
+                process.stdout.write(responseBuffer);
 
-    } catch (error) {
-      console.error('Error in proxy request handler:', error);
-      throw error;
+            } catch (e) {
+                console.error("Proxy Error:", e);
+            } finally {
+                // Reset for next message
+                contentLength = 0;
+                headers = {};
+            }
+        }
     }
-  };
-  
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  
-  console.error('Wikipedia MCP proxy started. Listening on stdio.');
-}
-
-main().catch(err => {
-  console.error('Proxy server crashed:', err);
-  process.exit(1);
 }); 
