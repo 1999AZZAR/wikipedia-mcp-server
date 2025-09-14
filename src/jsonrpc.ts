@@ -1,4 +1,4 @@
-import { Transport, JSONRPCMessage } from './transport';
+import { Transport, JSONRPCMessage } from './transport.js';
 
 export class JSONRPCServer {
   private transport: Transport;

@@ -1,4 +1,4 @@
-import { EnhancedWikipediaService } from './wikipediaService';
+import { EnhancedWikipediaService } from './wikipediaService.js';
 
 export class WikipediaExtendedFeatures {
   constructor(private wikipediaService: EnhancedWikipediaService) {}

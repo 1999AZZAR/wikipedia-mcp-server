@@ -1,10 +1,10 @@
 import { Hono } from 'hono';
 import { logger } from 'hono/logger';
-import { JSONRPCServer } from './jsonrpc';
-import { WorkerTransport } from './WorkerTransport';
-import { EnhancedWikipediaService } from './wikipediaService';
-import { WikipediaExtendedFeatures } from './additionalFeatures';
-import { MonitoringService } from './monitoring';
+import { JSONRPCServer } from './jsonrpc.js';
+import { WorkerTransport } from './WorkerTransport.js';
+import { EnhancedWikipediaService } from './wikipediaService.js';
+import { WikipediaExtendedFeatures } from './additionalFeatures.js';
+import { MonitoringService } from './monitoring.js';
 import { z } from 'zod';
 import LRUCache from 'lru-cache';
 

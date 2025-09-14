@@ -1,5 +1,5 @@
 import LRUCache from 'lru-cache';
-import { WikipediaEndpointManager, RequestDeduplicator } from './resilience';
+import { WikipediaEndpointManager, RequestDeduplicator } from './resilience.js';
 
 // Type definition for search results
 export type WikiSearchResult = {

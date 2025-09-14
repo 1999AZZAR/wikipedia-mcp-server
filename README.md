@@ -92,7 +92,44 @@ wrangler kv:namespace create "WIKI_CACHE" --preview
 
 The server supports multiple environments (development, staging, production) with different cache settings and feature toggles. See `wrangler.toml` for full configuration options.
 
+### **Standalone Server Configuration**
+
+For the standalone Node.js version, you can configure the server using environment variables or by copying `config.example.env` to `.env`:
+
+```bash
+# Copy the example configuration
+cp config.example.env .env
+
+# Edit the configuration as needed
+nano .env
+```
+
+Available configuration options:
+- `CACHE_MAX`: Maximum number of items in memory cache (default: 100)
+- `CACHE_TTL`: Cache TTL in milliseconds (default: 300000 = 5 minutes)
+- `DEFAULT_LANGUAGE`: Default Wikipedia language (default: en)
+- `ENABLE_DEDUPLICATION`: Enable request deduplication (default: true)
+- `USER_AGENT`: Custom user agent for Wikipedia API requests
+- `SERVER_NAME`: Server name for logging (default: wikipedia-mcp-server)
+- `SERVER_VERSION`: Server version for logging (default: 1.0.0)
+
 ## Running Locally
+
+### Option 1: Standalone Node.js MCP Server (Recommended)
+
+For local development and testing, you can run the server as a standalone Node.js process:
+
+```bash
+# Build the project
+npm run build
+
+# Run the standalone server
+npm start
+```
+
+This starts a standalone MCP server that communicates via stdio, perfect for integration with MCP clients like Cursor.
+
+### Option 2: Cloudflare Workers Development
 
 ```bash
 npm run dev
@@ -228,6 +265,26 @@ Returns comprehensive health status, endpoint availability, cache metrics, and p
 ## Integrations & Client Setup
 
 This MCP-compliant Wikipedia server can be integrated into any tool that supports the Model Context Protocol, such as Cursor or VS Code.
+
+### Option 1: Standalone Node.js Server (Recommended for Local Development)
+
+For local development, you can use the standalone Node.js server directly:
+
+```json
+{
+  "mcpServers": {
+    "wikipedia-mcp": {
+      "command": "node",
+      "args": ["/path/to/wikipedia-mcp-server/index.js"],
+      "env": {}
+    }
+  }
+}
+```
+
+Replace `/path/to/wikipedia-mcp-server/index.js` with the absolute path to your `index.js` file.
+
+### Option 2: Cloudflare Workers (Production)
 
 To make the server's command available to your client (like Cursor), you need to install it globally from this project's directory. This is a one-time setup step.
 

@@ -1,5 +1,5 @@
 import { Context } from 'hono';
-import { Transport, JSONRPCMessage } from './transport';
+import { Transport, JSONRPCMessage } from './transport.js';
 
 /**
  * WorkerTransport implements Transport over Hono's context for Cloudflare Workers.

@@ -43,14 +43,12 @@ export function createWikipediaMcp(
     },
     async ({ query, lang, limit, offset, includeSnippets }) => {
       const results = await wikipediaService.search(query, { lang, limit, offset, includeSnippets });
+      const searchResults = results?.query?.search || [];
       return {
-        structuredContent: results?.query?.search || [],
         content: [
           {
             type: "text",
-            text: `Found ${
-              results?.query?.search?.length || 0
-            } results for "${query}"`,
+            text: `Found ${searchResults.length} results for "${query}":\n\n${searchResults.map((result: any) => `- ${result.title}: ${result.snippet || 'No snippet available'}`).join('\n')}`,
           },
         ],
       };
@@ -93,12 +91,22 @@ export function createWikipediaMcp(
     },
     async ({ title, lang, sections, images, links, categories }) => {
       const result = await wikipediaService.getPage(title, { lang, sections, images, links, categories });
+      const pageData = result?.parse;
+      if (!pageData) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Page "${title}" not found.`,
+            },
+          ],
+        };
+      }
       return {
-        structuredContent: result?.parse || null,
         content: [
           {
             type: "text",
-            text: `Content for page "${title}"`,
+            text: `Page: ${pageData.title}\nText: ${pageData.text?.['*']?.substring(0, 1000) || 'No text available'}...`,
           },
         ],
       };
@@ -121,12 +129,21 @@ export function createWikipediaMcp(
     },
     async ({ title, lang }) => {
       const result = await wikipediaService.getPageSummary(title, lang);
+      if (!result) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Summary for page "${title}" not found.`,
+            },
+          ],
+        };
+      }
       return {
-        structuredContent: result,
         content: [
           {
             type: "text",
-            text: `Summary for page "${title}"`,
+            text: `Summary for "${title}":\n\n${result.extract || 'No summary available'}`,
           },
         ],
       };
@@ -169,12 +186,22 @@ export function createWikipediaMcp(
     },
     async ({ id, lang, sections, images, links, categories }) => {
       const result = await wikipediaService.getPageById(id, { lang, sections, images, links, categories });
+      const pageData = result?.parse;
+      if (!pageData) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Page with ID "${id}" not found.`,
+            },
+          ],
+        };
+      }
       return {
-        structuredContent: result?.parse || null,
         content: [
           {
             type: "text",
-            text: `Content for page ID "${id}"`,
+            text: `Page ID: ${id}\nTitle: ${pageData.title}\nText: ${pageData.text?.['*']?.substring(0, 1000) || 'No text available'}...`,
           },
         ],
       };
@@ -196,12 +223,22 @@ export function createWikipediaMcp(
     },
     async ({ lang }) => {
       const result = await wikipediaService.getRandomPage(lang);
+      const randomPage = result?.query?.random?.[0];
+      if (!randomPage) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `No random page found.`,
+            },
+          ],
+        };
+      }
       return {
-        structuredContent: result,
         content: [
           {
             type: "text",
-            text: `Random page`,
+            text: `Random page: ${randomPage.title} (ID: ${randomPage.id})`,
           },
         ],
       };
@@ -224,12 +261,23 @@ export function createWikipediaMcp(
     },
     async ({ title, lang }) => {
       const result = await extendedFeatures.getPageLanguages(title, lang);
+      const pageData = result?.query?.pages;
+      if (!pageData) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `No language information found for page "${title}".`,
+            },
+          ],
+        };
+      }
+      const languages = (Object.values(pageData)[0] as any)?.langlinks || [];
       return {
-        structuredContent: result,
         content: [
           {
             type: "text",
-            text: `Languages for page "${title}"`,
+            text: `Languages available for "${title}":\n\n${languages.map((lang: any) => `- ${lang.lang}: ${lang['*'] || lang.title || 'Unknown'}`).join('\n')}`,
           },
         ],
       };

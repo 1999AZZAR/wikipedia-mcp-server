@@ -2,15 +2,18 @@
   "name": "wikipedia-mcp-server",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "bin": {
-    "wikipedia-mcp": "bin/proxy.js"
+    "wikipedia-mcp": "index.js"
   },
-  "main": "dist/worker.js",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
+    "start": "node index.js",
     "dev": "wrangler dev src/worker.ts",
     "deploy": "wrangler deploy",
-    "test": "jest"
+    "test": "jest",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@cloudflare/workers-types": "^4.20250513.0",
@@ -23,6 +26,7 @@
   "devDependencies": {
     "@types/jest": "^29.4.0",
     "@types/lru-cache": "^5.1.0",
+    "@types/node": "^20.0.0",
     "@types/node-fetch": "^2.6.3",
     "jest": "^29.5.0",
     "ts-jest": "^29.0.3",
