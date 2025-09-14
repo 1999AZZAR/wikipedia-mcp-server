@@ -284,5 +284,217 @@ export function createWikipediaMcp(
     }
   );
 
+  // Batch Operations Tools
+  server.registerTool(
+    "batchSearch",
+    {
+      title: "Batch Wikipedia Search",
+      description: "Search multiple queries at once for efficiency.",
+      inputSchema: {
+        queries: z.array(z.string()).min(1).max(10).describe("Array of search queries (max 10)."),
+        lang: z
+          .string()
+          .optional()
+          .default("en")
+          .describe("The language to search in (e.g., 'en', 'es', 'fr')."),
+        limit: z
+          .number()
+          .int()
+          .positive()
+          .max(20)
+          .optional()
+          .default(5)
+          .describe("Maximum number of results per query."),
+        concurrency: z
+          .number()
+          .int()
+          .positive()
+          .max(10)
+          .optional()
+          .default(5)
+          .describe("Number of concurrent requests (max 10)."),
+      },
+    },
+    async ({ queries, lang, limit, concurrency }) => {
+      const results = await extendedFeatures.batchSearch(queries, { lang, limit, concurrency });
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Batch search results for ${queries.length} queries:\n\n${Object.entries(results).map(([query, result]: [string, any]) => {
+              if (result.error) {
+                return `❌ "${query}": ${result.error}`;
+              }
+              const searchResults = result?.query?.search || [];
+              return `✅ "${query}": ${searchResults.length} results\n${searchResults.map((r: any) => `  - ${r.title}`).join('\n')}`;
+            }).join('\n\n')}`,
+          },
+        ],
+      };
+    }
+  );
+
+  server.registerTool(
+    "batchGetPages",
+    {
+      title: "Batch Get Wikipedia Pages",
+      description: "Get multiple Wikipedia pages at once for efficiency.",
+      inputSchema: {
+        titles: z.array(z.string()).min(1).max(10).describe("Array of page titles (max 10)."),
+        lang: z
+          .string()
+          .optional()
+          .default("en")
+          .describe("The language of the pages (e.g., 'en', 'es', 'fr')."),
+        sections: z
+          .boolean()
+          .optional()
+          .default(true)
+          .describe("Whether to include sections in the results."),
+        concurrency: z
+          .number()
+          .int()
+          .positive()
+          .max(10)
+          .optional()
+          .default(5)
+          .describe("Number of concurrent requests (max 10)."),
+      },
+    },
+    async ({ titles, lang, sections, concurrency }) => {
+      const results = await extendedFeatures.batchGetPages(titles, { lang, sections, concurrency });
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Batch page results for ${titles.length} pages:\n\n${Object.entries(results).map(([title, result]: [string, any]) => {
+              if (result.error) {
+                return `❌ "${title}": ${result.error}`;
+              }
+              const pageData = result?.parse;
+              if (!pageData) {
+                return `❌ "${title}": Page not found`;
+              }
+              const textPreview = pageData.text?.['*']?.substring(0, 200) || 'No text available';
+              return `✅ "${title}": ${pageData.title}\nPreview: ${textPreview}...`;
+            }).join('\n\n')}`,
+          },
+        ],
+      };
+    }
+  );
+
+  // Geographic Search Tool
+  server.registerTool(
+    "searchNearby",
+    {
+      title: "Search Wikipedia Articles Near Location",
+      description: "Find Wikipedia articles near specific coordinates.",
+      inputSchema: {
+        lat: z.number().min(-90).max(90).describe("Latitude coordinate (-90 to 90)."),
+        lon: z.number().min(-180).max(180).describe("Longitude coordinate (-180 to 180)."),
+        radius: z
+          .number()
+          .int()
+          .positive()
+          .max(10000)
+          .optional()
+          .default(1000)
+          .describe("Search radius in meters (max 10000)."),
+        lang: z
+          .string()
+          .optional()
+          .default("en")
+          .describe("The language to search in (e.g., 'en', 'es', 'fr')."),
+        limit: z
+          .number()
+          .int()
+          .positive()
+          .max(50)
+          .optional()
+          .default(10)
+          .describe("Maximum number of results to return."),
+      },
+    },
+    async ({ lat, lon, radius, lang, limit }) => {
+      const result = await extendedFeatures.searchNearby({ lat, lon, radius, lang, limit });
+      const places = result?.query?.geosearch || [];
+      if (places.length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `No Wikipedia articles found near coordinates (${lat}, ${lon}) within ${radius}m radius.`,
+            },
+          ],
+        };
+      }
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Found ${places.length} Wikipedia articles near (${lat}, ${lon}) within ${radius}m:\n\n${places.map((place: any) => 
+              `📍 ${place.title}\n   Distance: ${place.dist}m\n   Coordinates: ${place.lat}, ${place.lon}`
+            ).join('\n\n')}`,
+          },
+        ],
+      };
+    }
+  );
+
+  // Category Exploration Tool
+  server.registerTool(
+    "getPagesInCategory",
+    {
+      title: "Get Pages in Wikipedia Category",
+      description: "Browse pages within a specific Wikipedia category.",
+      inputSchema: {
+        category: z.string().describe("The category name (with or without 'Category:' prefix)."),
+        lang: z
+          .string()
+          .optional()
+          .default("en")
+          .describe("The language of the category (e.g., 'en', 'es', 'fr')."),
+        limit: z
+          .number()
+          .int()
+          .positive()
+          .max(100)
+          .optional()
+          .default(20)
+          .describe("Maximum number of pages to return."),
+        type: z
+          .enum(['page', 'subcat', 'file'])
+          .optional()
+          .default('page')
+          .describe("Type of category members to return."),
+      },
+    },
+    async ({ category, lang, limit, type }) => {
+      const result = await extendedFeatures.getPagesInCategory(category, { lang, limit, type });
+      const members = result?.query?.categorymembers || [];
+      if (members.length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `No pages found in category "${category}".`,
+            },
+          ],
+        };
+      }
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Found ${members.length} ${type}s in category "${category}":\n\n${members.map((member: any) => 
+              `📄 ${member.title} (ID: ${member.pageid})`
+            ).join('\n')}`,
+          },
+        ],
+      };
+    }
+  );
+
   return server;
 } 

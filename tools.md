@@ -1,12 +1,12 @@
-# Enhanced Wikipedia MCP Server - Complete Tools Reference
+# Wikipedia MCP Server - Complete Tools Reference
 
-This document details all the tools (methods) available through the Enhanced Wikipedia MCP Server's JSON-RPC 2.0 API with enterprise-grade resilience and monitoring features.
+This document details all the tools (methods) available through the Wikipedia MCP Server's JSON-RPC 2.0 API with enterprise-grade resilience and monitoring features.
 
-## 🌟 Overview
+## Overview
 
-The Enhanced Wikipedia MCP Server provides **6 powerful tools** for Wikipedia interaction:
+The Wikipedia MCP Server provides **10 powerful tools** for Wikipedia interaction:
 
-### 🎯 **Core Enhanced Tools**
+### Core Tools
 1. **`search`** - Enhanced search with snippet control and pagination
 2. **`getPage`** - Enhanced page retrieval with images, links, categories
 3. **`getPageById`** - Enhanced page by ID with same enhancement options
@@ -14,10 +14,16 @@ The Enhanced Wikipedia MCP Server provides **6 powerful tools** for Wikipedia in
 5. **`random`** - Random article discovery
 6. **`pageLanguages`** - Lists available languages for a given page
 
-### 🔍 **Monitoring Endpoints**
-- **`GET /health`** - Comprehensive health status, diagnostics, and real-time analytics.
+### Advanced Tools
+7. **`batchSearch`** - Search multiple queries simultaneously for efficiency
+8. **`batchGetPages`** - Retrieve multiple pages at once with concurrency control
+9. **`searchNearby`** - Find Wikipedia articles near specific coordinates
+10. **`getPagesInCategory`** - Browse pages within Wikipedia categories
 
-## 🛡️ Enterprise Features
+### Monitoring Endpoints
+- **`GET /health`** - Comprehensive health status, diagnostics, and real-time analytics
+
+## Enterprise Features
 
 - **Circuit Breaker Pattern** - Automatic failover between Wikipedia endpoints
 - **Multi-tier Caching** - Memory LRU + Cloudflare KV persistence  
@@ -27,7 +33,7 @@ The Enhanced Wikipedia MCP Server provides **6 powerful tools** for Wikipedia in
 
 ---
 
-## 📋 Base Request Format
+## Base Request Format
 
 All tool calls are sent to the `/mcp` endpoint and must use the `tools/call` method:
 
@@ -47,7 +53,7 @@ All tool calls are sent to the `/mcp` endpoint and must use the `tools/call` met
 
 ---
 
-## 🔧 Enhanced Tools Reference
+## Tools Reference
 
 ### 1. search (Enhanced)
 
@@ -193,7 +199,7 @@ Same enhanced structure as `getPage` method.
 
 ---
 
-### 4. getPageSummary ✨ (NEW)
+### 4. getPageSummary
 
 Get fast, concise page summaries using Wikipedia's REST API for optimal performance.
 
@@ -226,7 +232,7 @@ The `structuredContent` will contain the summary data from the Wikipedia API.
 
 ---
 
-### 5. random ✨ (NEW)
+### 5. random
 
 Discover random Wikipedia articles for content exploration and serendipitous learning.
 
@@ -257,7 +263,7 @@ The `structuredContent` will contain the random page data from the Wikipedia API
 
 ---
 
-### 6. pageLanguages ✨ (NEW)
+### 6. pageLanguages
 
 Lists the language editions available for a specific Wikipedia page.
 
@@ -289,7 +295,160 @@ The `structuredContent` will contain the list of available languages.
 
 ---
 
-## 🔍 Monitoring Endpoints
+### 7. batchSearch (Advanced)
+
+Search multiple queries simultaneously for improved efficiency and performance.
+
+#### Arguments
+
+| Argument | Type | Required | Default | Validation | Description |
+|-----------|------|----------|---------|------------|-------------|
+| `queries` | array | ✅ Yes | - | 1-10 strings | Array of search queries |
+| `limit` | number | ❌ No | 5 | 1-50, integer | Maximum results per query |
+| `lang` | string | ❌ No | "en" | ISO 639-1 code | Wikipedia language edition |
+| `concurrency` | number | ❌ No | 3 | 1-10, integer | Concurrent request limit |
+
+#### Example Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "batchSearch",
+    "arguments": {
+      "queries": ["Albert Einstein", "Quantum Physics", "Machine Learning"],
+      "limit": 3,
+      "lang": "en",
+      "concurrency": 3
+    }
+  },
+  "id": "batch-search-1"
+}
+```
+
+#### Response Format
+The `content` field will contain formatted results for all queries with success/failure status.
+
+---
+
+### 8. batchGetPages (Advanced)
+
+Retrieve multiple Wikipedia pages simultaneously with concurrency control.
+
+#### Arguments
+
+| Argument | Type | Required | Default | Validation | Description |
+|-----------|------|----------|---------|------------|-------------|
+| `titles` | array | ✅ Yes | - | 1-10 strings | Array of page titles |
+| `lang` | string | ❌ No | "en" | ISO 639-1 code | Wikipedia language edition |
+| `sections` | boolean | ❌ No | true | - | Include page sections |
+| `images` | boolean | ❌ No | false | - | Include page images |
+| `links` | boolean | ❌ No | false | - | Include page links |
+| `categories` | boolean | ❌ No | false | - | Include page categories |
+| `concurrency` | number | ❌ No | 2 | 1-5, integer | Concurrent request limit |
+
+#### Example Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "batchGetPages",
+    "arguments": {
+      "titles": ["Albert Einstein", "Machine Learning"],
+      "lang": "en",
+      "sections": true,
+      "concurrency": 2
+    }
+  },
+  "id": "batch-pages-1"
+}
+```
+
+#### Response Format
+The `content` field will contain formatted results for all pages with success/failure status.
+
+---
+
+### 9. searchNearby (Geographic)
+
+Find Wikipedia articles near specific geographic coordinates.
+
+#### Arguments
+
+| Argument | Type | Required | Default | Validation | Description |
+|-----------|------|----------|---------|------------|-------------|
+| `lat` | number | ✅ Yes | - | -90 to 90 | Latitude coordinate |
+| `lon` | number | ✅ Yes | - | -180 to 180 | Longitude coordinate |
+| `radius` | number | ❌ No | 1000 | 1-10000, integer | Search radius in meters |
+| `lang` | string | ❌ No | "en" | ISO 639-1 code | Wikipedia language edition |
+| `limit` | number | ❌ No | 10 | 1-50, integer | Maximum results to return |
+
+#### Example Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "searchNearby",
+    "arguments": {
+      "lat": 40.7128,
+      "lon": -74.0060,
+      "radius": 5000,
+      "lang": "en",
+      "limit": 10
+    }
+  },
+  "id": "nearby-1"
+}
+```
+
+#### Response Format
+The `content` field will contain formatted results with article titles, distances, and coordinates.
+
+---
+
+### 10. getPagesInCategory (Category Exploration)
+
+Browse pages within a specific Wikipedia category.
+
+#### Arguments
+
+| Argument | Type | Required | Default | Validation | Description |
+|-----------|------|----------|---------|------------|-------------|
+| `category` | string | ✅ Yes | - | Min 1 char | Category name (with or without "Category:" prefix) |
+| `lang` | string | ❌ No | "en" | ISO 639-1 code | Wikipedia language edition |
+| `limit` | number | ❌ No | 20 | 1-100, integer | Maximum results to return |
+| `type` | string | ❌ No | "page" | "page", "subcat", "file" | Type of category members |
+
+#### Example Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "getPagesInCategory",
+    "arguments": {
+      "category": "Physics",
+      "lang": "en",
+      "limit": 20,
+      "type": "page"
+    }
+  },
+  "id": "category-1"
+}
+```
+
+#### Response Format
+The `content` field will contain formatted results with page titles and IDs.
+
+---
+
+## Monitoring Endpoints
 
 ### GET /health - Health, Diagnostics & Analytics
 
@@ -338,7 +497,7 @@ Returns comprehensive system health status, diagnostics, and real-time analytics
 
 ---
 
-## 🚨 Enhanced Error Handling
+## Error Handling
 
 Comprehensive error handling with detailed diagnostics and recovery suggestions.
 
@@ -377,7 +536,7 @@ Comprehensive error handling with detailed diagnostics and recovery suggestions.
 
 ---
 
-## 🌍 Enhanced Language Support
+## Language Support
 
 Supports **280+ Wikipedia language editions** with intelligent fallbacks:
 
@@ -399,7 +558,7 @@ Supports **280+ Wikipedia language editions** with intelligent fallbacks:
 
 ---
 
-## ⚡ Performance & Caching
+## Performance & Caching
 
 ### Multi-tier Caching Strategy
 
@@ -432,7 +591,7 @@ Supports **280+ Wikipedia language editions** with intelligent fallbacks:
 
 ---
 
-## 🔌 Integration Examples
+## Integration Examples
 
 ### Enhanced cURL Examples
 
@@ -680,7 +839,7 @@ print(f"Status: {health['status']}, Response time: {health['wikipedia']['endpoin
 
 ---
 
-## 🔐 Security & Best Practices
+## Security & Best Practices
 
 ### Input Validation
 - **Query limits**: Max 500 characters
@@ -703,7 +862,7 @@ print(f"Status: {health['status']}, Response time: {health['wikipedia']['endpoin
 
 ---
 
-## 📊 Additional Features
+## Additional Features
 
 - **Request Deduplication**: Prevents duplicate concurrent requests
 - **Circuit Breaker**: Automatic failover during Wikipedia API issues  
@@ -715,4 +874,4 @@ print(f"Status: {health['status']}, Response time: {health['wikipedia']['endpoin
 
 ---
 
-**🚀 The Enhanced Wikipedia MCP Server provides enterprise-grade Wikipedia access with performance, reliability, and monitoring built for production workloads.** 
+**The Wikipedia MCP Server provides enterprise-grade Wikipedia access with performance, reliability, and monitoring built for production workloads.** 
