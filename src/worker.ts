@@ -9,6 +9,7 @@ import { z } from 'zod';
 import LRUCache from 'lru-cache';
 import { createWikipediaMcp } from './mcp.js';
 import { isJSONRPCResponse, isJSONRPCError } from '@modelcontextprotocol/sdk/types.js';
+import { getServerSchema } from './schema.js';
 
 // Environment bindings interface
 interface EnvBindings {
@@ -277,6 +278,86 @@ app.get('/health', async (c) => {
         timestamp: new Date().toISOString(),
         service: healthStatus,
         monitoring: metrics
+    });
+});
+
+// Schema endpoint to expose server tools and their schemas
+app.get('/schema', async (c) => {
+    const { mcp } = initializeServices(c.env);
+    
+    // Create a mock transport to extract schema
+    let schemaResponse: any = null;
+    const mockTransport = {
+        onmessage: (message: any) => {},
+        onclose: () => {},
+        onerror: (error: Error) => {},
+        start: async () => {},
+        close: async () => {},
+        send: async (message: any) => {
+            if (message.result && message.result.tools) {
+                schemaResponse = message.result;
+            }
+        },
+    };
+
+    await mcp.server.connect(mockTransport);
+    
+    // Request tools list
+    if (mockTransport.onmessage) {
+        mockTransport.onmessage({
+            jsonrpc: '2.0',
+            method: 'tools/list',
+            id: 'schema-request'
+        });
+    }
+
+    // Wait for response
+    const responsePromise = new Promise<any>((resolve) => {
+        const interval = setInterval(() => {
+            if (schemaResponse) {
+                clearInterval(interval);
+                resolve(schemaResponse);
+            }
+        }, 10);
+        
+        // Timeout after 1 second
+        setTimeout(() => {
+            clearInterval(interval);
+            resolve(null);
+        }, 1000);
+    });
+
+    const schema = await responsePromise;
+    
+    if (!schema) {
+        // Fallback: return schema from our export function
+        return c.json(getServerSchema());
+    }
+    
+    return c.json(schema);
+});
+
+// Tools list endpoint for easy discovery
+app.get('/tools', async (c) => {
+    const schema = getServerSchema();
+    
+    // Return simplified tools list
+    const toolsList = schema.tools.map(tool => ({
+        name: tool.name,
+        description: tool.description,
+        parameters: Object.keys(tool.inputSchema.properties).map(param => ({
+            name: param,
+            type: tool.inputSchema.properties[param].type,
+            required: tool.inputSchema.required?.includes(param) || false,
+            default: tool.inputSchema.properties[param].default,
+            description: tool.inputSchema.properties[param].description
+        }))
+    }));
+    
+    return c.json({
+        server: schema.serverInfo,
+        tools: toolsList,
+        totalTools: toolsList.length
     });
 });
 

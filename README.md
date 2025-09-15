@@ -341,9 +341,130 @@ The primary endpoint for interacting with the service. While it uses the Model C
 ### GET /health - Service Health & Monitoring
 Returns comprehensive health status, endpoint availability, cache metrics, and performance analytics. **Note:** This endpoint includes the data previously found at the `/metrics` endpoint.
 
+### GET /schema - Server Schema Extraction
+Retrieve the complete server schema with all available tools and their parameters. This endpoint provides machine-readable schema information that can be used by clients to discover available tools and their requirements.
+
+**Response Format:**
+```json
+{
+  "serverInfo": {
+    "name": "wikipedia-mcp-server",
+    "version": "1.0.0",
+    "description": "Enterprise-grade Wikipedia MCP server"
+  },
+  "tools": [
+    {
+      "name": "search",
+      "description": "Search Wikipedia for articles matching a query.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "The search query." },
+          "lang": { "type": "string", "default": "en", "description": "Wikipedia language edition" },
+          "limit": { "type": "number", "default": 10, "description": "Maximum number of results" },
+          "offset": { "type": "number", "default": 0, "description": "Pagination offset" },
+          "includeSnippets": { "type": "boolean", "default": true, "description": "Include search snippets" }
+        },
+        "required": ["query"]
+      }
+    }
+    // ... more tools
+  ]
+}
+```
+
+### GET /tools - Simplified Tools List
+Get a simplified list of all available tools with their parameters for easy discovery and integration.
+
+**Response Format:**
+```json
+{
+  "server": {
+    "name": "wikipedia-mcp-server",
+    "version": "1.0.0",
+    "description": "Enterprise-grade Wikipedia MCP server"
+  },
+  "tools": [
+    {
+      "name": "search",
+      "description": "Search Wikipedia for articles matching a query.",
+      "parameters": [
+        {
+          "name": "query",
+          "type": "string",
+          "required": true,
+          "description": "The search query."
+        },
+        {
+          "name": "lang",
+          "type": "string",
+          "required": false,
+          "default": "en",
+          "description": "Wikipedia language edition"
+        }
+        // ... more parameters
+      ]
+    }
+    // ... more tools
+  ],
+  "totalTools": 10
+}
+```
+
 ## Integrations & Client Setup
 
 This MCP-compliant Wikipedia server can be integrated into any tool that supports the Model Context Protocol, such as Cursor or VS Code.
+
+## Schema Extraction & Discovery
+
+The server provides multiple ways to extract and discover its schema:
+
+### 1. HTTP Endpoints
+- **`GET /schema`** - Complete server schema in JSON format
+- **`GET /tools`** - Simplified tools list for easy discovery
+- **`GET /health`** - Health status and monitoring data
+
+### 2. Programmatic Schema Access
+```typescript
+import { getServerSchema, exportAsJSONSchema, exportAsTypeScript } from './dist/schema.js';
+
+// Get complete server schema
+const schema = getServerSchema();
+console.log('Available tools:', schema.tools.map(t => t.name));
+
+// Export as JSON Schema
+const jsonSchema = exportAsJSONSchema();
+
+// Export as TypeScript interfaces
+const tsInterfaces = exportAsTypeScript();
+```
+
+### 3. Client Integration Examples
+```bash
+# Extract server schema
+curl https://your-worker.workers.dev/schema
+
+# Get simplified tools list
+curl https://your-worker.workers.dev/tools
+
+# Check server health
+curl https://your-worker.workers.dev/health
+```
+
+### 4. Schema Validation
+```typescript
+import { validateToolArguments } from './dist/schema.js';
+
+// Validate tool arguments before sending
+const validation = validateToolArguments('search', {
+  query: 'artificial intelligence',
+  limit: 10
+});
+
+if (!validation.valid) {
+  console.error('Validation errors:', validation.errors);
+}
+```
 
 ### Option 1: Standalone Node.js Server (Recommended for Local Development)
 

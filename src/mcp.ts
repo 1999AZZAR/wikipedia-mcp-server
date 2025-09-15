@@ -496,5 +496,8 @@ export function createWikipediaMcp(
     }
   );
 
+  // The MCP SDK automatically handles tools/list requests
+  // No need to manually set a handler
+
   return server;
 } 

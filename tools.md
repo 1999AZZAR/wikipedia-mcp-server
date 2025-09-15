@@ -23,6 +23,10 @@ The Wikipedia MCP Server provides **10 powerful tools** for Wikipedia interactio
 ### Monitoring Endpoints
 - **`GET /health`** - Comprehensive health status, diagnostics, and real-time analytics
 
+### Schema Extraction Endpoints
+- **`GET /schema`** - Complete server schema with all tools and parameters (JSON Schema format)
+- **`GET /tools`** - Simplified tools list for easy discovery and integration
+
 ## Enterprise Features
 
 - **Circuit Breaker Pattern** - Automatic failover between Wikipedia endpoints
@@ -447,6 +451,88 @@ Browse pages within a specific Wikipedia category.
 The `content` field will contain formatted results with page titles and IDs.
 
 ---
+
+## Schema Extraction Endpoints
+
+### GET /schema - Complete Server Schema
+
+Retrieve the complete server schema with all available tools and their parameters in JSON Schema format.
+
+```bash
+curl https://your-worker.workers.dev/schema
+```
+
+**Response Format:**
+```json
+{
+  "serverInfo": {
+    "name": "wikipedia-mcp-server",
+    "version": "1.0.0",
+    "description": "Enterprise-grade Wikipedia MCP server"
+  },
+  "tools": [
+    {
+      "name": "search",
+      "description": "Search Wikipedia for articles matching a query.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "The search query." },
+          "lang": { "type": "string", "default": "en" },
+          "limit": { "type": "number", "default": 10 },
+          "offset": { "type": "number", "default": 0 },
+          "includeSnippets": { "type": "boolean", "default": true }
+        },
+        "required": ["query"]
+      }
+    }
+    // ... all 10 tools
+  ]
+}
+```
+
+### GET /tools - Simplified Tools List
+
+Get a simplified list of all available tools with their parameters for easy discovery.
+
+```bash
+curl https://your-worker.workers.dev/tools
+```
+
+**Response Format:**
+```json
+{
+  "server": {
+    "name": "wikipedia-mcp-server",
+    "version": "1.0.0",
+    "description": "Enterprise-grade Wikipedia MCP server"
+  },
+  "tools": [
+    {
+      "name": "search",
+      "description": "Search Wikipedia for articles matching a query.",
+      "parameters": [
+        {
+          "name": "query",
+          "type": "string",
+          "required": true,
+          "description": "The search query."
+        },
+        {
+          "name": "lang",
+          "type": "string",
+          "required": false,
+          "default": "en",
+          "description": "Wikipedia language edition"
+        }
+        // ... more parameters
+      ]
+    }
+    // ... all 10 tools
+  ],
+  "totalTools": 10
+}
+```
 
 ## Monitoring Endpoints
 
