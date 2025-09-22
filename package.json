@@ -1,6 +1,9 @@
 {
   "name": "wikipedia-mcp-server",
+  "description": "A comprehensive Model Context Protocol (MCP) server that provides advanced Wikipedia search functionality, web content extraction, search analytics, and specialized research tools.",
   "version": "1.0.0",
+  "author": "Azzar Budiyanto",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "bin": {
